@@ -7,11 +7,17 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const prisma = require('../utils/prismaClient');
 
+const DEFAULT_JWT_SECRET = '8f3a2e1d9c7b4f6e0a5d8c2b1f4e7a9d3c6b0e5f8a2d4c7b1e3f6a9d2c5b8e1f4a7d0c3b6e9f2a5d8c1b4e7f0a3d6';
+const DEFAULT_REFRESH_SECRET = 'a1b4e7d0c3f6a9b2e5d8c1f4b7e0a3d6c9f2a5b8e1d4c7f0a3b6e9d2c5f8b1e4a7d0c3b6f9a2e5d8c1b4f7e0a3d6c9';
+
+const getJwtSecret = () => process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+const getRefreshSecret = () => process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || DEFAULT_REFRESH_SECRET;
+
 // ── Token helpers ─────────────────────────────────────────────
 function generateAccessToken(user) {
   return jwt.sign(
     { userId: user.id, role: user.role },
-    process.env.JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
   );
 }
@@ -19,7 +25,7 @@ function generateAccessToken(user) {
 function generateRefreshToken(user) {
   return jwt.sign(
     { userId: user.id },
-    process.env.JWT_REFRESH_SECRET,
+    getRefreshSecret(),
     { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d' }
   );
 }
