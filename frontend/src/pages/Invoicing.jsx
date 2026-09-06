@@ -63,6 +63,7 @@ export default function Invoicing() {
   const [narration, setNarration] = useState('');
   const [notes, setNotes] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [highlightedProductIdx, setHighlightedProductIdx] = useState(0);
 
   // Invoice view / print modal
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
@@ -70,6 +71,17 @@ export default function Invoicing() {
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   const debouncedProductSearch = useDebounce(productSearch, 300);
+
+  // Reset highlighted search item when query changes
+  useEffect(() => {
+    setHighlightedProductIdx(0);
+  }, [debouncedProductSearch]);
+
+  // Auto-focus customer on initial mount for rapid keyboard entry
+  useEffect(() => {
+    const custEl = document.getElementById('inv-customer');
+    if (custEl) custEl.focus();
+  }, []);
 
   // Customers dropdown
   const { data: custData } = useQuery({
@@ -545,6 +557,12 @@ export default function Invoicing() {
                     className="form-select"
                     value={customerId}
                     onChange={(e) => setCustomerId(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('inv-salesman')?.focus();
+                      }
+                    }}
                   >
                     <option value="">— Select Customer —</option>
                     {customers.map((c) => (
@@ -592,6 +610,12 @@ export default function Invoicing() {
                     placeholder="e.g. Ali Khan"
                     value={salesman}
                     onChange={(e) => setSalesman(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('prod-search-inv')?.focus();
+                      }
+                    }}
                   />
                 </div>
 
@@ -603,6 +627,12 @@ export default function Invoicing() {
                     className="form-input"
                     value={invoiceDate}
                     onChange={(e) => setInvoiceDate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('prod-search-inv')?.focus();
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -726,28 +756,68 @@ export default function Invoicing() {
                 <Search size={14} />
                 <input
                   id="prod-search-inv"
-                  placeholder="Search product by name..."
+                  placeholder="Search product by name... (Press Enter to pick, or on empty to pay)"
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
                   autoComplete="off"
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      if (products.length > 0) {
+                        setHighlightedProductIdx((prev) => (prev + 1) % products.length);
+                      }
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      if (products.length > 0) {
+                        setHighlightedProductIdx((prev) => (prev - 1 + products.length) % products.length);
+                      }
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (products.length > 0 && productSearch.trim().length > 0) {
+                        const chosen = products[highlightedProductIdx] || products[0];
+                        if (chosen) {
+                          addProduct(chosen);
+                          setTimeout(() => {
+                            const lastQty = document.querySelector('.item-qty-input-last');
+                            if (lastQty) {
+                              lastQty.focus();
+                              lastQty.select();
+                            }
+                          }, 60);
+                        }
+                      } else if (!productSearch.trim() && items.length > 0) {
+                        // Empty search + Enter -> go to Paid Amount or Save
+                        const paidInput = document.getElementById('inv-paid');
+                        if (paidInput && invoiceType !== 'CASH') {
+                          paidInput.focus();
+                          paidInput.select();
+                        } else {
+                          document.getElementById('save-invoice-btn')?.focus();
+                        }
+                      }
+                    }
+                  }}
                 />
               </div>
               {products.length > 0 && productSearch && (
                 <div
+                  id="prod-results-container"
                   style={{
                     border: '1px solid var(--border)',
                     borderRadius: 6,
-                    maxHeight: 200,
+                    maxHeight: 220,
                     overflowY: 'auto',
                     marginBottom: 10,
                   }}
                 >
-                  {products.map((p) => {
+                  {products.map((p, pIdx) => {
+                    const isSelected = pIdx === highlightedProductIdx;
                     const tp = parseFloat(p.tradePrice || p.purchasePrice || 0);
                     const rp = parseFloat(p.salePrice || 0);
                     return (
                       <div
                         key={p.id}
+                        id={`prod-result-${pIdx}`}
                         style={{
                           padding: '10px 12px',
                           minHeight: 44,
@@ -757,14 +827,24 @@ export default function Invoicing() {
                           justifyContent: 'space-between',
                           alignItems: 'center',
                           fontSize: 13,
-                          transition: 'background 120ms ease',
+                          background: isSelected ? 'rgba(37, 99, 235, 0.09)' : undefined,
+                          borderLeft: isSelected ? '3px solid #2563eb' : '3px solid transparent',
+                          transition: 'background 100ms ease',
                         }}
-                        onClick={() => addProduct(p)}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f5f7f5')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '')}
+                        onClick={() => {
+                          addProduct(p);
+                          setTimeout(() => {
+                            const lastQty = document.querySelector('.item-qty-input-last');
+                            if (lastQty) {
+                              lastQty.focus();
+                              lastQty.select();
+                            }
+                          }, 60);
+                        }}
+                        onMouseEnter={() => setHighlightedProductIdx(pIdx)}
                       >
                         <div>
-                          <span style={{ fontWeight: 600 }}>{p.productName}</span>
+                          <span style={{ fontWeight: isSelected ? 700 : 600 }}>{p.productName}</span>
                           <span className="text-muted" style={{ marginLeft: 8 }}>
                             {p.category}
                           </span>
@@ -936,13 +1016,30 @@ export default function Invoicing() {
                           {/* Quantity (PKT) */}
                           <td className="num">
                             <input
+                              id={`item-qty-${idx}`}
                               type="number"
                               min="0.001"
                               step="0.001"
-                              className="form-input tabular"
+                              className={`form-input tabular item-qty-input ${idx === items.length - 1 ? 'item-qty-input-last' : ''}`}
                               style={{ width: 60, padding: '4px 6px', textAlign: 'center', fontWeight: 600 }}
                               value={item.qty}
                               onChange={(e) => updateItem(idx, 'qty', e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (item.pricingMode === 'NET') {
+                                    const priceEl = document.getElementById(`item-price-${idx}`);
+                                    if (priceEl) { priceEl.focus(); priceEl.select(); return; }
+                                  }
+                                  const discEl = document.getElementById(`item-disc-${idx}`);
+                                  if (discEl) {
+                                    discEl.focus();
+                                    discEl.select();
+                                  } else {
+                                    document.getElementById('prod-search-inv')?.focus();
+                                  }
+                                }
+                              }}
                             />
                           </td>
 
@@ -994,6 +1091,18 @@ export default function Invoicing() {
                                 value={item.unitPrice}
                                 readOnly={item.pricingMode === 'RETAIL' || item.pricingMode === 'TP'}
                                 onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const discEl = document.getElementById(`item-disc-${idx}`);
+                                    if (discEl) {
+                                      discEl.focus();
+                                      discEl.select();
+                                    } else {
+                                      document.getElementById('prod-search-inv')?.focus();
+                                    }
+                                  }
+                                }}
                                 title={
                                   item.pricingMode === 'RETAIL'
                                     ? 'Retail price is locked during invoicing. Use Net mode for custom rates.'
@@ -1027,6 +1136,7 @@ export default function Invoicing() {
                           {/* Discount % */}
                           <td className="num">
                             <input
+                              id={`item-disc-${idx}`}
                               type="number"
                               min="0"
                               max="100"
@@ -1035,6 +1145,12 @@ export default function Invoicing() {
                               style={{ width: 55, padding: '4px 6px', textAlign: 'center' }}
                               value={item.discount}
                               onChange={(e) => updateItem(idx, 'discount', e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  document.getElementById('prod-search-inv')?.focus();
+                                }
+                              }}
                             />
                           </td>
 
@@ -1275,6 +1391,12 @@ export default function Invoicing() {
                 placeholder="0.00"
                 value={paidAmount}
                 onChange={(e) => setPaidAmount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('save-invoice-btn')?.focus();
+                  }
+                }}
               />
             </div>
 
