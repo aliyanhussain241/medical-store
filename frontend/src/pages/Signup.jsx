@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/services';
 import toast from 'react-hot-toast';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 export default function Signup() {
   const { login } = useAuth();
@@ -42,7 +43,7 @@ export default function Signup() {
           <p>Medical Store Wholesale Management</p>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
           {error && (
             <div style={{ background: '#FEE2E2', color: '#B4372B', padding: '10px 12px', borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
               {error}

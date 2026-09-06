@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bankAccountsAPI, ledgerAPI, bankBookAPI, exportAPI, downloadBlob } from '../api/services';
 import toast from 'react-hot-toast';
 import { Plus, X, Landmark, FileDown } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK') : '—'; }
@@ -216,7 +217,12 @@ function ManualEntryModal({ bankAccountId, bankName, onClose, onSuccess }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        style={{ maxWidth: 440 }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => handleFormEnterKey(e, handleSave)}
+      >
         <div className="modal-header">
           <span>Manual Bank Entry — {bankName}</span>
           <button className="btn-icon" onClick={onClose}><X size={14} /></button>

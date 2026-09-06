@@ -27,11 +27,23 @@ export default function Purchasing() {
   const [items, setItems] = useState([]);
   const [paidAmount, setPaidAmount] = useState('');
   const [productSearch, setProductSearch] = useState('');
+  const [highlightedProductIdx, setHighlightedProductIdx] = useState(0);
   const [narration, setNarration] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [bankAccountId, setBankAccountId] = useState('');
   const debouncedProductSearch = useDebounce(productSearch, 300);
   const [payModal, setPayModal] = useState(null); // purchase to pay
+
+  useEffect(() => {
+    setHighlightedProductIdx(0);
+  }, [debouncedProductSearch]);
+
+  useEffect(() => {
+    if (tab === 'new') {
+      const compEl = document.getElementById('po-company');
+      if (compEl) compEl.focus();
+    }
+  }, [tab]);
 
   const { data: compData } = useQuery({
     queryKey: ['companies-all'],
@@ -125,14 +137,37 @@ export default function Purchasing() {
               <div className="grid-2">
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Company / Distributor *</label>
-                  <select id="po-company" className="form-select" value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
+                  <select
+                    id="po-company"
+                    className="form-select"
+                    value={companyId}
+                    onChange={(e) => setCompanyId(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('po-prod-search')?.focus();
+                      }
+                    }}
+                  >
                     <option value="">— Select Company —</option>
                     {companies.map((c) => <option key={c.id} value={c.id}>{c.companyName}</option>)}
                   </select>
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Purchase Date</label>
-                  <input id="po-date" type="date" className="form-input" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+                  <input
+                    id="po-date"
+                    type="date"
+                    className="form-input"
+                    value={purchaseDate}
+                    onChange={(e) => setPurchaseDate(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        document.getElementById('po-prod-search')?.focus();
+                      }
+                    }}
+                  />
                 </div>
               </div>
             </div>
@@ -142,19 +177,76 @@ export default function Purchasing() {
               <div className="card-body" style={{ paddingBottom: 0 }}>
                 <div className="search-input-wrap" style={{ maxWidth: '100%', marginBottom: 10 }}>
                   <Search size={14} />
-                  <input id="po-prod-search" placeholder="Search product..." value={productSearch} onChange={(e) => setProductSearch(e.target.value)} />
+                  <input
+                    id="po-prod-search"
+                    placeholder="Search product... (Press Enter to add, or Enter on empty to pay)"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    autoComplete="off"
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        if (products.length > 0) setHighlightedProductIdx((prev) => (prev + 1) % products.length);
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        if (products.length > 0) setHighlightedProductIdx((prev) => (prev - 1 + products.length) % products.length);
+                      } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        if (products.length > 0 && productSearch.trim().length > 0) {
+                          const chosen = products[highlightedProductIdx] || products[0];
+                          if (chosen) {
+                            addProduct(chosen);
+                            setProductSearch('');
+                            setTimeout(() => {
+                              const lastQty = document.querySelector('.po-qty-input-last');
+                              if (lastQty) { lastQty.focus(); lastQty.select(); }
+                            }, 60);
+                          }
+                        } else if (!productSearch.trim() && items.length > 0) {
+                          const paidEl = document.getElementById('po-paid');
+                          if (paidEl && paymentMethod !== 'CASH') {
+                            paidEl.focus();
+                            paidEl.select();
+                          } else {
+                            document.getElementById('save-po-btn')?.focus();
+                          }
+                        }
+                      }
+                    }}
+                  />
                 </div>
                 {products.length > 0 && productSearch && (
                   <div style={{ border: '1px solid var(--border)', borderRadius: 6, maxHeight: 180, overflowY: 'auto', marginBottom: 10 }}>
-                    {products.map((p) => (
-                      <div key={p.id} style={{ padding: '7px 12px', cursor: 'pointer', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}
-                        onClick={() => addProduct(p)}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f5f7f5'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = ''}>
-                        <span style={{ fontWeight: 600 }}>{p.productName}</span>
-                        <span className="text-muted">{pkr(p.purchasePrice)}</span>
-                      </div>
-                    ))}
+                    {products.map((p, pIdx) => {
+                      const isSelected = pIdx === highlightedProductIdx;
+                      return (
+                        <div
+                          key={p.id}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--border)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: 13,
+                            background: isSelected ? 'rgba(37, 99, 235, 0.09)' : undefined,
+                            borderLeft: isSelected ? '3px solid #2563eb' : '3px solid transparent',
+                          }}
+                          onClick={() => {
+                            addProduct(p);
+                            setProductSearch('');
+                            setTimeout(() => {
+                              const lastQty = document.querySelector('.po-qty-input-last');
+                              if (lastQty) { lastQty.focus(); lastQty.select(); }
+                            }, 60);
+                          }}
+                          onMouseEnter={() => setHighlightedProductIdx(pIdx)}
+                        >
+                          <span style={{ fontWeight: isSelected ? 700 : 600 }}>{p.productName}</span>
+                          <span className="text-muted">{pkr(p.purchasePrice)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -180,9 +272,63 @@ export default function Purchasing() {
                     ) : items.map((item, idx) => (
                       <tr key={item.productId}>
                         <td style={{ fontWeight: 500 }}>{item.productName} <span className="text-muted text-sm">/ {item.unit}</span></td>
-                        <td className="num"><input type="number" min="0.001" step="0.001" className="form-input tabular" style={{ width: 70, padding: '4px 6px', textAlign: 'right' }} value={item.qty} onChange={(e) => updateItem(idx, 'qty', e.target.value)} /></td>
-                        <td className="num"><input type="number" min="0" step="0.01" className="form-input tabular" style={{ width: 90, padding: '4px 6px', textAlign: 'right' }} value={item.unitPrice} onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)} /></td>
-                        <td className="num"><input type="number" min="0" max="100" step="0.5" className="form-input" style={{ width: 60, padding: '4px 6px', textAlign: 'right' }} value={item.discount} onChange={(e) => updateItem(idx, 'discount', e.target.value)} /></td>
+                        <td className="num">
+                          <input
+                            id={`po-item-qty-${idx}`}
+                            type="number"
+                            min="0.001"
+                            step="0.001"
+                            className={`form-input tabular ${idx === items.length - 1 ? 'po-qty-input-last' : ''}`}
+                            style={{ width: 70, padding: '4px 6px', textAlign: 'right' }}
+                            value={item.qty}
+                            onChange={(e) => updateItem(idx, 'qty', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const pEl = document.getElementById(`po-item-price-${idx}`);
+                                if (pEl) { pEl.focus(); pEl.select(); }
+                              }
+                            }}
+                          />
+                        </td>
+                        <td className="num">
+                          <input
+                            id={`po-item-price-${idx}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="form-input tabular"
+                            style={{ width: 90, padding: '4px 6px', textAlign: 'right' }}
+                            value={item.unitPrice}
+                            onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const dEl = document.getElementById(`po-item-disc-${idx}`);
+                                if (dEl) { dEl.focus(); dEl.select(); }
+                              }
+                            }}
+                          />
+                        </td>
+                        <td className="num">
+                          <input
+                            id={`po-item-disc-${idx}`}
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            className="form-input"
+                            style={{ width: 60, padding: '4px 6px', textAlign: 'right' }}
+                            value={item.discount}
+                            onChange={(e) => updateItem(idx, 'discount', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                document.getElementById('po-prod-search')?.focus();
+                              }
+                            }}
+                          />
+                        </td>
                         <td className="num tabular" style={{ fontWeight: 600 }}>{pkr(calcLine(item.qty, item.unitPrice, item.discount))}</td>
                         <td><button className="btn-icon" onClick={() => removeItem(idx)} style={{ color: 'var(--alert)' }}><Trash2 size={13} /></button></td>
                       </tr>
@@ -229,7 +375,23 @@ export default function Purchasing() {
               )}
               <div className="form-group">
                 <label className="form-label">Amount Paid Now (Rs)</label>
-                <input id="po-paid" type="number" step="0.01" min="0" className="form-input tabular" style={{ fontSize: 18, fontWeight: 700, padding: '10px 12px' }} placeholder="0.00" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
+                <input
+                  id="po-paid"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="form-input tabular"
+                  style={{ fontSize: 18, fontWeight: 700, padding: '10px 12px' }}
+                  placeholder="0.00"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      document.getElementById('save-po-btn')?.focus();
+                    }
+                  }}
+                />
               </div>
               <div className="pos-total-row" style={{ padding: '4px 0' }}>
                 <span className="text-muted text-sm">Balance Payable</span>
@@ -335,7 +497,22 @@ function PaymentModal({ title, balance, bankAccounts = [], onClose, onSave, load
           )}
           <div className="form-group">
             <label className="form-label">Amount to Pay (Rs)</label>
-            <input id="pay-amount" type="number" step="0.01" min="0" className="form-input" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus />
+            <input
+              id="pay-amount"
+              type="number"
+              step="0.01"
+              min="0"
+              className="form-input"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && amount && !loading && !(method === 'BANK' && !bankId)) {
+                  e.preventDefault();
+                  onSave(parseFloat(amount), method, bankId);
+                }
+              }}
+              autoFocus
+            />
           </div>
         </div>
         <div className="modal-footer">

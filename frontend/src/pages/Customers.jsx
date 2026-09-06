@@ -2,13 +2,14 @@
 // src/pages/Customers.jsx — Full CRUD for customers
 // + debounced search + server-side pagination + skeletons & empty state
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersAPI, citiesAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, Users, User, MapPin, DollarSign } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 
@@ -102,6 +103,12 @@ export default function Customers() {
   }
   function closeModal() { setModal(null); setEditId(null); }
   function set(f) { return (e) => setForm({ ...form, [f]: e.target.value }); }
+
+  useEffect(() => {
+    if (modal) {
+      setTimeout(() => document.getElementById('cust-name')?.focus(), 80);
+    }
+  }, [modal]);
 
   const customers = data?.data || [];
 
@@ -258,7 +265,11 @@ export default function Customers() {
       {/* Add/Edit Modal */}
       {modal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.customerName) saveMutation.mutate(form); })}
+          >
             <div className="modal-header">
               <span>{modal === 'add' ? 'Add New Customer' : 'Edit Customer Details'}</span>
               <button className="btn-icon" onClick={closeModal}><X size={14} /></button>

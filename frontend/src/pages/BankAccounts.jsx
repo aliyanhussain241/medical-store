@@ -2,13 +2,14 @@
 // src/pages/BankAccounts.jsx — Full CRUD for bank accounts
 // Mirrors Companies.jsx pattern
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { bankAccountsAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, Landmark } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 const EMPTY = { bankName: '', accountTitle: '', accountNumber: '', branch: '', openingBalance: '' };
@@ -58,6 +59,12 @@ export default function BankAccounts() {
   }
   function closeModal() { setModal(null); setEditId(null); }
   function set(f) { return (e) => setForm({ ...form, [f]: e.target.value }); }
+
+  useEffect(() => {
+    if (modal) {
+      setTimeout(() => document.getElementById('bank-name')?.focus(), 80);
+    }
+  }, [modal]);
 
   const accounts = data?.data || [];
 
@@ -128,7 +135,11 @@ export default function BankAccounts() {
 
       {modal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.bankName && form.accountNumber) saveMutation.mutate(form); })}
+          >
             <div className="modal-header">
               <span>{modal === 'add' ? 'Add Bank Account' : 'Edit Bank Account'}</span>
               <button className="btn-icon" onClick={closeModal}><X size={14} /></button>

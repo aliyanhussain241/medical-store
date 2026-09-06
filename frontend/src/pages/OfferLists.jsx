@@ -12,6 +12,7 @@ import {
   Plus, Search, FileDown, Printer, Eye, Edit2, Trash2,
   Tag, X, Check, CheckCircle2, XCircle, AlertCircle
 } from 'lucide-react';
+import { handleEnterNext } from '../utils/keyboardNav';
 
 function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -226,6 +227,7 @@ export default function OfferLists() {
     setSelectedProductId('');
     setItemOfferValue('');
     setItemRemarks('');
+    setTimeout(() => document.getElementById('ol-product-select')?.focus(), 50);
     toast.success(`Added ${product?.productName} to list.`);
   }
 
@@ -530,6 +532,12 @@ export default function OfferLists() {
                       className="form-select"
                       value={selectedCompanyId}
                       onChange={(e) => setSelectedCompanyId(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          document.getElementById('ol-product-select')?.focus();
+                        }
+                      }}
                     >
                       <option value="">-- Select Company --</option>
                       {companies.map((c) => (
@@ -555,6 +563,16 @@ export default function OfferLists() {
                       className="form-select"
                       value={selectedProductId}
                       onChange={(e) => setSelectedProductId(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (itemOfferType === 'PERCENTAGE' || itemOfferType === 'NET') {
+                            document.getElementById('ol-value-input')?.focus();
+                          } else {
+                            document.getElementById('ol-type-select')?.focus();
+                          }
+                        }
+                      }}
                     >
                       <option value="">-- Select Product ({products.length}) --</option>
                       {products.map((p) => (
@@ -597,6 +615,12 @@ export default function OfferLists() {
                         placeholder="e.g. 5 for 5%"
                         value={itemOfferValue}
                         onChange={(e) => setItemOfferValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
                       />
                     </div>
                   )}
@@ -613,6 +637,12 @@ export default function OfferLists() {
                         placeholder="e.g. 1200"
                         value={itemOfferValue}
                         onChange={(e) => setItemOfferValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddItem();
+                          }
+                        }}
                       />
                     </div>
                   )}
@@ -628,15 +658,28 @@ export default function OfferLists() {
                           placeholder="Buy (10)"
                           value={itemBuyQty}
                           onChange={(e) => setItemBuyQty(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              document.getElementById('ol-bonus-free')?.focus();
+                            }
+                          }}
                         />
                         <span style={{ alignSelf: 'center', fontWeight: 700 }}>+</span>
                         <input
+                          id="ol-bonus-free"
                           type="number"
                           min="1"
                           className="form-input"
                           placeholder="Free (1)"
                           value={itemFreeQty}
                           onChange={(e) => setItemFreeQty(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddItem();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -659,6 +702,12 @@ export default function OfferLists() {
                       placeholder="e.g. New Pack, Clearance"
                       value={itemRemarks}
                       onChange={(e) => setItemRemarks(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddItem();
+                        }
+                      }}
                     />
                   </div>
                 </div>

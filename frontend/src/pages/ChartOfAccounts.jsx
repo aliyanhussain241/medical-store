@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { accountHeadsAPI } from '../api/services';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, Layers, TrendingUp, TrendingDown, ShieldAlert } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 const CATEGORIES = [
   { value: 'EXPENSE', label: 'Expense', icon: TrendingDown, color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
@@ -279,11 +280,12 @@ export default function ChartOfAccounts() {
               <h3>{modal === 'add' ? 'Add New Account Head' : 'Edit Account Head'}</h3>
               <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">Category <span className="req">*</span></label>
                   <select
+                    id="coa-category"
                     className="form-control"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}

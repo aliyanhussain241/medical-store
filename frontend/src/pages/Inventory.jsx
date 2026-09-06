@@ -2,7 +2,7 @@
 // src/pages/Inventory.jsx — Products with alerts, batch, expiry
 // + debounced search + server-side pagination
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
@@ -10,6 +10,7 @@ import Pagination from '../components/Pagination';
 import ImportExcelModal from '../components/ImportExcelModal';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 const EMPTY = { productName: '', category: '', unit: 'strip', batchNo: '', expiryDate: '', purchasePrice: '', tradePrice: '', salePrice: '', stockQty: '', minStockAlert: 10 };
 const PAGE_SIZE = 25;
@@ -81,6 +82,12 @@ export default function Inventory() {
   }
   function closeModal() { setModal(null); setEditId(null); }
   function set(f) { return (e) => setForm({ ...form, [f]: e.target.value }); }
+
+  useEffect(() => {
+    if (modal) {
+      setTimeout(() => document.getElementById('prod-name')?.focus(), 80);
+    }
+  }, [modal]);
 
   const products = data?.data || [];
 
@@ -175,7 +182,11 @@ export default function Inventory() {
       {/* Add/Edit Modal */}
       {modal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal modal-lg"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.productName && form.purchasePrice && form.salePrice) saveMutation.mutate(form); })}
+          >
             <div className="modal-header">
               <span>{modal === 'add' ? 'Add Product' : 'Edit Product'}</span>
               <button className="btn-icon" onClick={closeModal}><X size={14} /></button>
@@ -252,7 +263,22 @@ export default function Inventory() {
               <p className="text-muted" style={{ marginBottom: 12 }}>Current stock: <strong>{parseFloat(adjModal.stockQty)} {adjModal.unit}</strong></p>
               <div className="form-group">
                 <label className="form-label">Quantity to Add / Subtract</label>
-                <input id="adj-qty" type="number" step="0.001" className="form-input" placeholder="e.g. +50 or -10" value={adjQty} onChange={(e) => setAdjQty(e.target.value)} autoFocus />
+                <input
+                  id="adj-qty"
+                  type="number"
+                  step="0.001"
+                  className="form-input"
+                  placeholder="e.g. +50 or -10"
+                  value={adjQty}
+                  onChange={(e) => setAdjQty(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && adjQty && !adjMutation.isPending) {
+                      e.preventDefault();
+                      adjMutation.mutate({ id: adjModal.id, qty: adjQty });
+                    }
+                  }}
+                  autoFocus
+                />
                 <span className="form-hint">Use negative value (e.g. -5) to reduce stock.</span>
               </div>
             </div>

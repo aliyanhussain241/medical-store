@@ -2,13 +2,14 @@
 // src/pages/Companies.jsx — Full CRUD for supplier companies
 // + debounced search + server-side pagination
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 const EMPTY = { companyName: '', contactPerson: '', phone: '', address: '', openingBalance: '', town: '', sector: '', cnic: '' };
@@ -64,6 +65,12 @@ export default function Companies() {
   }
   function closeModal() { setModal(null); setEditId(null); }
   function set(f) { return (e) => setForm({ ...form, [f]: e.target.value }); }
+
+  useEffect(() => {
+    if (modal) {
+      setTimeout(() => document.getElementById('comp-name')?.focus(), 80);
+    }
+  }, [modal]);
 
   const companies = data?.data || [];
 
@@ -139,7 +146,11 @@ export default function Companies() {
 
       {modal && (
         <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.companyName) saveMutation.mutate(form); })}
+          >
             <div className="modal-header">
               <span>{modal === 'add' ? 'Add Company' : 'Edit Company'}</span>
               <button className="btn-icon" onClick={closeModal}><X size={14} /></button>

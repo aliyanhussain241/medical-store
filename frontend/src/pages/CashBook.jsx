@@ -2,12 +2,13 @@
 // src/pages/CashBook.jsx — Client reference format
 // DATE | DETAIL (2-line) | RECEIPTS | PAYMENTS | BALANCE
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cashBookAPI, exportAPI, downloadBlob, accountHeadsAPI } from '../api/services';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { FileDown, Plus, X } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
@@ -72,6 +73,12 @@ export default function CashBook() {
   const closingBalance = openingBalance + parseFloat(summary.totalIn || 0) - parseFloat(summary.totalOut || 0);
 
   function set(f) { return (e) => setForm({ ...form, [f]: e.target.value }); }
+
+  useEffect(() => {
+    if (modal) {
+      setTimeout(() => document.getElementById('cb-entry-type')?.focus(), 80);
+    }
+  }, [modal]);
 
   // Entry type display
   const entryTypeLabel = form.category === 'EXPENSE' ? 'Cash Expense' : (parseFloat(form.cashIn) > 0 ? 'Receipt (MCR)' : (parseFloat(form.cashOut) > 0 ? 'Payment (MCP)' : '—'));
@@ -202,7 +209,12 @@ export default function CashBook() {
       {/* ──── Add Entry Modal ──── */}
       {modal && (
         <div className="modal-overlay" onClick={() => setModal(false)}>
-          <div className="modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal"
+            style={{ maxWidth: 480 }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.description) saveMutation.mutate(form); })}
+          >
             <div className="modal-header">
               <span>Add Cash Book Entry</span>
               <button className="btn-icon" onClick={() => setModal(false)}><X size={14} /></button>
@@ -211,7 +223,7 @@ export default function CashBook() {
               {/* Entry Type */}
               <div className="form-group">
                 <label className="form-label">Entry Type</label>
-                <select className="form-select" value={form.category} onChange={set('category')}>
+                <select id="cb-entry-type" className="form-select" value={form.category} onChange={set('category')}>
                   <option value="">Receipt / Payment</option>
                   <option value="EXPENSE">Cash Expense (misc)</option>
                 </select>

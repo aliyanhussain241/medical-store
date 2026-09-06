@@ -8,6 +8,7 @@ import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, MapPin } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 const PAGE_SIZE = 25;
 
@@ -192,11 +193,12 @@ export default function Cities() {
               <h3>{modal === 'add' ? 'Add New City / Area' : 'Edit City / Area'}</h3>
               <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
             </div>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">City / Area Name <span className="req">*</span></label>
                   <input
+                    id="city-name-input"
                     className="form-control"
                     placeholder="e.g. Lahore, Rawalpindi, Faisalabad"
                     value={cityName}

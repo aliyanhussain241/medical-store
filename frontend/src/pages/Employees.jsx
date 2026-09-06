@@ -10,6 +10,7 @@ import {
   Plus, Search, Pencil, Trash2, X, UserCheck, DollarSign,
   History, Building2, Wallet, Calendar, AlertCircle
 } from 'lucide-react';
+import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) {
   return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
@@ -295,7 +296,7 @@ export default function Employees() {
               <h3>{modal === 'add' ? 'Add New Employee' : 'Edit Employee'}</h3>
               <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
             </div>
-            <form onSubmit={handleEmpSubmit}>
+            <form onSubmit={handleEmpSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleEmpSubmit)}>
               <div className="modal-body">
                 <div className="form-group">
                   <label className="form-label">Employee Full Name <span className="req">*</span></label>
@@ -387,7 +388,7 @@ export default function Employees() {
               <h3>Salary Payment Voucher</h3>
               <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
             </div>
-            <form onSubmit={handlePaySubmit}>
+            <form onSubmit={handlePaySubmit} onKeyDown={(e) => handleFormEnterKey(e, handlePaySubmit)}>
               <div className="modal-body">
                 {/* Employee Snapshot */}
                 <div
