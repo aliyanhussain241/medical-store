@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: medical-store-app
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: TOKIO_WORKER_THREADS
+        value: 1
+      - key: UV_THREADPOOL_SIZE
+        value: 2

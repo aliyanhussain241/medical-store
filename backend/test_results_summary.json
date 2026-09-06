@@ -1,0 +1,159 @@
+{
+  "test1_sales": {
+    "pass": true,
+    "invoiceNo": "INV-00002",
+    "invoiceId": "1093caa6-1b49-489c-b433-a8aae911cbed",
+    "customerName": "Anwar Saeed",
+    "totalAmount": "1030.00",
+    "paidAmount": "50.00",
+    "balanceAmount": "980.00",
+    "stockDeltas": [
+      {
+        "product": "Amoxicillin 250mg Capsules",
+        "before": 240,
+        "sold": 10,
+        "after": 230
+      },
+      {
+        "product": "Aspirin 75mg Tablets",
+        "before": 595,
+        "sold": 5,
+        "after": 590
+      },
+      {
+        "product": "Atorvastatin 10mg Tablets",
+        "before": 88,
+        "sold": 2,
+        "after": 86
+      }
+    ],
+    "ledger": {
+      "before": 980,
+      "after": 1960,
+      "expected": "1960.00"
+    },
+    "cashBook": {
+      "recordedCashIn": 50,
+      "expectedCashIn": 50
+    },
+    "dashboard": {
+      "todaySales": {
+        "before": "1030.00",
+        "after": "2060.00",
+        "diff": "1030.00",
+        "expected": "1030.00"
+      },
+      "todayProfit": {
+        "before": "260.00",
+        "after": "520.00",
+        "diff": "260.00",
+        "expected": "260.00"
+      }
+    }
+  },
+  "test2_purchase": {
+    "pass": true,
+    "purchaseNo": "PO-00002",
+    "purchaseId": "fb7a2a02-0a7f-4e0c-9e24-42d73b1aab88",
+    "companyName": "AlphaMed Wholesale",
+    "totalAmount": "3250.00",
+    "paidAmount": "50.00",
+    "balanceAmount": "3200.00",
+    "stock": {
+      "product": "Amoxicillin 250mg Capsules",
+      "before": 230,
+      "added": 50,
+      "after": 280
+    },
+    "ledger": {
+      "before": 3200,
+      "after": 6400,
+      "expected": "6400.00"
+    },
+    "cashBook": {
+      "recordedCashOut": 50,
+      "expectedCashOut": 50
+    }
+  },
+  "test3_exports": {
+    "pass": true,
+    "items": [
+      {
+        "name": "Invoice PDF",
+        "status": 200,
+        "size": 2516,
+        "valid": true,
+        "notes": "Valid PDF Header (%PDF-), File Size: 2.5 KB"
+      },
+      {
+        "name": "Invoice Excel",
+        "status": 200,
+        "size": 7461,
+        "valid": true,
+        "notes": "Valid XLSX (Invoice), Rows: 15, Size: 7.3 KB"
+      },
+      {
+        "name": "Customer Ledger PDF",
+        "status": 200,
+        "size": 2298,
+        "valid": true,
+        "notes": "Valid PDF Header (%PDF-), File Size: 2.2 KB"
+      },
+      {
+        "name": "Customer Ledger Excel",
+        "status": 200,
+        "size": 7351,
+        "valid": true,
+        "notes": "Valid XLSX (Ledger), Rows: 15, Size: 7.2 KB"
+      },
+      {
+        "name": "Cash Book PDF",
+        "status": 200,
+        "size": 2114,
+        "valid": true,
+        "notes": "Valid PDF Header (%PDF-), File Size: 2.1 KB"
+      },
+      {
+        "name": "Cash Book Excel",
+        "status": 200,
+        "size": 7199,
+        "valid": true,
+        "notes": "Valid XLSX (Cash Book), Rows: 13, Size: 7.0 KB"
+      },
+      {
+        "name": "Profit Report PDF",
+        "status": 200,
+        "size": 1967,
+        "valid": true,
+        "notes": "Valid PDF Header (%PDF-), File Size: 1.9 KB"
+      },
+      {
+        "name": "Profit Report Excel",
+        "status": 200,
+        "size": 7152,
+        "valid": true,
+        "notes": "Valid XLSX (Profit Report), Rows: 11, Size: 7.0 KB"
+      }
+    ]
+  },
+  "test4_multisession": {
+    "pass": true,
+    "invoiceMatch": true,
+    "stockMatch": true,
+    "ledgerMatch": true,
+    "dashMatch": true
+  },
+  "test5_isolation": {
+    "pass": true,
+    "user2Email": "isolated_1788418918529@medicalstore.app",
+    "counts": {
+      "products": 0,
+      "customers": 0,
+      "companies": 0,
+      "invoices": 0,
+      "cashEntries": 0
+    },
+    "directInvoiceBlocked": true,
+    "directLedgerBlocked": true
+  }
+}

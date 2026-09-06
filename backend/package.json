@@ -1,0 +1,50 @@
+{
+  "name": "medical-store-backend",
+  "version": "1.0.0",
+  "description": "Medical Store Wholesale Management — REST API",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
+    "db:migrate": "node node_modules/prisma/build/index.js migrate dev",
+    "db:generate": "node node_modules/prisma/build/index.js generate",
+    "db:push": "node node_modules/prisma/build/index.js db push",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "node node_modules/prisma/build/index.js studio"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/adapter-pg": "^5.22.0",
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.12.0",
+    "multer": "^2.3.0",
+    "nodemailer": "^9.1.1",
+    "pdfkit": "^0.20.2",
+    "pg": "^8.23.0",
+    "prisma": "5.22.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "prisma@5.22.0": true
+  }
+}
