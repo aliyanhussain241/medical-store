@@ -208,14 +208,9 @@ function generateInvoicePDF(invoice, user) {
     let totalSchemeAmt = 0;
     let totalNetAmt = 0;
 
-    const rowH = 15;
-    invoice.items.forEach((item, idx) => {
-      // Check page overflow
-      if (currentY + rowH > doc.page.height - 70) {
-        doc.addPage();
-        currentY = 25;
-      }
+    const itemCol = cols.find((c) => c.key === 'item');
 
+    invoice.items.forEach((item, idx) => {
       const mode = item.pricingMode || 'TP';
       const suffix = mode === 'TP' ? 'T' : mode === 'RETAIL' ? 'R' : 'N';
       const unitPriceStr = `${parseFloat(item.unitPrice).toFixed(0)} ${suffix}`;
@@ -227,18 +222,28 @@ function generateInvoicePDF(invoice, user) {
       const st = parseFloat(item.schemeTotal || 0);
       const stu = parseFloat(item.schemeUnits || 0);
       const pcs = parseFloat(item.freePcs || 0);
+      const itemName = (item.product?.productName || item.customName || '—').toUpperCase();
 
       totalGrossAmt += gross;
       totalDiscountAmt += discAmt;
       totalSchemeAmt += st;
       totalNetAmt += net;
 
-      // Alternating row background
-      if (idx % 2 === 1) {
-        doc.rect(marginL, currentY, tableW, rowH).fill('#f8fafc');
+      // Calculate dynamic row height based on item name text wrap
+      doc.fontSize(7.5).font('Helvetica-Bold');
+      const itemTextH = doc.heightOfString(itemName, { width: itemCol.w - 4 });
+      const actualRowH = Math.max(14, Math.ceil(itemTextH) + 5);
+
+      // Check page overflow
+      if (currentY + actualRowH > doc.page.height - 85) {
+        doc.addPage();
+        currentY = 25;
       }
 
-      doc.fillColor('#000000').fontSize(7.5).font('Helvetica');
+      // Alternating row background
+      if (idx % 2 === 1) {
+        doc.rect(marginL, currentY, tableW, actualRowH).fill('#f8fafc');
+      }
 
       // Draw each cell
       cols.forEach((col) => {
@@ -246,7 +251,7 @@ function generateInvoicePDF(invoice, user) {
         if (col.key === 'seq') val = String(idx + 1);
         else if (col.key === 'qty') val = String(qty);
         else if (col.key === 'price') val = unitPriceStr;
-        else if (col.key === 'item') val = (item.product?.productName || '—').toUpperCase();
+        else if (col.key === 'item') val = itemName;
         else if (col.key === 'packing') val = item.packing || item.product?.unit || '—';
         else if (col.key === 'disc') val = parseFloat(item.discount || 0) > 0 ? `${parseFloat(item.discount)}%` : '0%';
         else if (col.key === 'discAmt') val = discAmt > 0 ? discAmt.toFixed(0) : '0';
@@ -257,19 +262,32 @@ function generateInvoicePDF(invoice, user) {
         else if (col.key === 'batch') val = item.batchNo || item.product?.batchNo || '—';
         else if (col.key === 'gross') val = gross.toFixed(0);
 
-        doc.text(val, col.x + 2, currentY + 3.5, {
-          width: col.w - 4,
-          align: col.align,
-          ellipsis: true,
-        });
+        const isItem = col.key === 'item';
+        const isBatch = col.key === 'batch';
+
+        doc.fillColor('#000000')
+          .fontSize(isBatch ? 6.5 : 7.5)
+          .font(isItem ? 'Helvetica-Bold' : 'Helvetica')
+          .text(val, col.x + 2, currentY + 3, {
+            width: col.w - 4,
+            align: col.align,
+            ellipsis: !isItem,
+            height: isItem ? undefined : actualRowH - 2,
+          });
       });
 
       // Subtle bottom line
-      doc.moveTo(marginL, currentY + rowH).lineTo(marginL + tableW, currentY + rowH)
+      doc.moveTo(marginL, currentY + actualRowH).lineTo(marginL + tableW, currentY + actualRowH)
         .strokeColor('#e2e8f0').lineWidth(0.5).stroke();
 
-      currentY += rowH;
+      currentY += actualRowH;
     });
+
+    // Check footer room
+    if (currentY + 70 > doc.page.height - 40) {
+      doc.addPage();
+      currentY = 25;
+    }
 
     // Table Footer Separator
     doc.moveTo(marginL, currentY).lineTo(marginL + tableW, currentY)
@@ -302,9 +320,9 @@ function generateInvoicePDF(invoice, user) {
     }
     doc.fillColor('#1e40af').text(`Balance: Rs ${newBalance.toLocaleString('en-PK', { minimumFractionDigits: 0 })}`, marginL, summaryY + 8, { align: 'right', width: tableW - 12 });
 
-    // Footer note
+    // Footer note placed right below the summary box safely
     doc.fillColor('#64748b').fontSize(7.5).font('Helvetica-Oblique')
-      .text('Thank you for your business. Computer generated invoice.', marginL, doc.page.height - 20, { align: 'center', width: tableW });
+      .text('Thank you for your business. Computer generated invoice.', marginL, summaryY + 32, { align: 'center', width: tableW });
 
     doc.end();
   });

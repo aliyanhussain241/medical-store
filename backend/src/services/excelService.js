@@ -201,7 +201,7 @@ async function generateInvoiceExcel(invoice, user) {
       i + 1,
       qty,
       unitPriceStr,
-      (item.product?.productName || '—').toUpperCase(),
+      (item.product?.productName || item.customName || '—').toUpperCase(),
       item.packing || item.product?.unit || '—',
       parseFloat(item.discount || 0),
       discAmt,

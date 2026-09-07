@@ -1175,12 +1175,35 @@ html, body, #root {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE INVOICE PREVIEW STYLES
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) {
+  .mobile-invoice-swipe-hint {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .mobile-invoice-swipe-hint {
+    display: flex !important;
+  }
+  .printable-invoice-wrapper {
+    padding: 12px 8px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  #printable-reference-invoice {
+    min-width: 760px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    PRINT STYLESHEET — Reference Invoice Print on A4
    ═══════════════════════════════════════════════════════════════ */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 8mm 10mm;
+    margin: 6mm 8mm;
   }
 
   /* Reset all shell containers to normal flow */
@@ -1209,6 +1232,7 @@ html, body, #root {
   .pos-layout,
   .btn,
   .btn-icon,
+  .mobile-invoice-swipe-hint,
   .no-print {
     display: none !important;
   }
@@ -1256,16 +1280,31 @@ html, body, #root {
   #printable-reference-invoice {
     display: block !important;
     width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     color: #000000 !important;
     background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .invoice-meta-grid {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+    margin-bottom: 8px !important;
+    gap: 4px 14px !important;
   }
 
   #printable-reference-invoice table {
     width: 100% !important;
+    min-width: 0 !important;
+    table-layout: fixed !important;
     border-collapse: collapse !important;
     page-break-inside: auto !important;
+    font-size: 8pt !important;
   }
 
   #printable-reference-invoice tr {
@@ -1277,5 +1316,41 @@ html, body, #root {
   #printable-reference-invoice td {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    padding: 3px 2px !important;
+  }
+
+  #printable-reference-invoice th {
+    background: #1e293b !important;
+    color: #ffffff !important;
+    font-size: 7.5pt !important;
+  }
+
+  /* Specific column widths for crisp A4 print without squishing */
+  .col-seq     { width: 3.5% !important; }
+  .col-pkt     { width: 4.8% !important; }
+  .col-price   { width: 8.2% !important; }
+  .col-item    { width: 22.5% !important; }
+  .col-packing { width: 6.5% !important; }
+  .col-disc    { width: 4.5% !important; }
+  .col-discamt { width: 6.5% !important; }
+  .col-stu     { width: 4.2% !important; }
+  .col-st      { width: 5.2% !important; }
+  .col-net     { width: 8.8% !important; }
+  .col-pcs     { width: 4.2% !important; }
+  .col-batch   { width: 8.8% !important; }
+  .col-gross   { width: 8.5% !important; }
+
+  .invoice-total-row {
+    background: #f1f5f9 !important;
+    border-top: 1px solid #94a3b8 !important;
+    border-bottom: 1px solid #94a3b8 !important;
+    padding: 4px 8px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .invoice-balance-grid {
+    background: #fafafa !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 10px !important;
   }
 }

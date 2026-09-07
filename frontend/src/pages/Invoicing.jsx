@@ -1683,92 +1683,148 @@ export default function Invoicing() {
             <div
               className="printable-invoice-wrapper"
               style={{
-                padding: 24,
+                padding: '20px 24px',
                 maxHeight: 'calc(85vh - 70px)',
                 overflowY: 'auto',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
                 background: '#ffffff',
               }}
             >
+              {/* Mobile horizontal scroll hint — visible on small touch screens */}
+              <div
+                className="mobile-invoice-swipe-hint no-print"
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: '#1e40af',
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  marginBottom: 12,
+                }}
+              >
+                <span>👉 Swipe left/right to view all 13 table columns 👈</span>
+              </div>
+
               <div
                 id="printable-reference-invoice"
                 style={{
                   fontFamily: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif',
                   color: '#0f172a',
                   lineHeight: 1.35,
+                  minWidth: 760,
                 }}
               >
                 {/* Header matching reference */}
                 <div style={{ textAlign: 'center', marginBottom: 12 }}>
-                  <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.02em' }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '0.02em', color: '#0f172a' }}>
                     {(user?.businessName || 'RAHMAT MEDICAL WHOLESALE').toUpperCase()}, {(user?.city || 'BHIRYA CITY').toUpperCase()}
                   </div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+                  <div style={{ fontSize: 11.5, color: '#475569', marginTop: 2 }}>
                     {user?.address || 'Main Bazar, Bhirya City'}
                   </div>
                 </div>
 
-                <div style={{ borderBottom: '1.5px solid #0f172a', marginBottom: 8 }} />
+                <div style={{ borderBottom: '2px solid #0f172a', marginBottom: 10 }} />
 
-                {/* Metadata block matching reference */}
-                <div style={{ fontSize: 11.5, marginBottom: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 800, fontSize: 13 }}>
+                {/* Metadata block with clean 2-column balanced grid */}
+                <div
+                  className="invoice-meta-grid"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
+                    gap: '6px 20px',
+                    fontSize: 11.5,
+                    marginBottom: 12,
+                    background: '#f8fafc',
+                    padding: '10px 14px',
+                    borderRadius: 6,
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  {/* Row 1: Est# & Status | INVOICE & Page */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: 13.5, color: '#0f172a' }}>
                       Est# {savedInvoiceData.invoiceNo}
-                    </div>
-                    <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: '0.1em' }}>
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: '1px 8px',
+                        borderRadius: 4,
+                        background: savedInvoiceData.invoiceType === 'CASH' ? '#dcfce7' : '#ede9fe',
+                        color: savedInvoiceData.invoiceType === 'CASH' ? '#166534' : '#6d28d9',
+                        border: `1px solid ${savedInvoiceData.invoiceType === 'CASH' ? '#86efac' : '#ddd6fe'}`,
+                      }}
+                    >
+                      {savedInvoiceData.invoiceType === 'CASH' ? 'CASH SALE' : 'CREDIT SALE'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: '0.12em', color: '#1e293b' }}>
                       INVOICE
-                    </div>
-                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                    </span>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>
                       Page# 1 of 1
-                    </div>
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                    <div>
-                      <strong>Party: </strong>
-                      <span style={{ fontWeight: 700 }}>
-                        {savedInvoiceData.customer?.customerCode || '0'} {(savedInvoiceData.customer?.customerName || '').toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <strong>Area: </strong>
-                      <span style={{ fontWeight: 700, color: '#2563eb' }}>
-                        {(savedInvoiceData.customer?.area || 'UNASSIGNED').toUpperCase()}
-                      </span>
-                    </div>
+                  {/* Row 2: Customer (Party) & Area */}
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>Party: </span>
+                    <strong style={{ color: '#0f172a', wordBreak: 'break-word' }}>
+                      {savedInvoiceData.customer?.customerCode || '0'} {(savedInvoiceData.customer?.customerName || '').toUpperCase()}
+                      {savedInvoiceData.customer?.shopName ? ` (${savedInvoiceData.customer.shopName.toUpperCase()})` : ''}
+                    </strong>
+                  </div>
+                  <div style={{ minWidth: 0, textAlign: 'right' }}>
+                    <span style={{ color: '#475569', fontWeight: 600 }}>Area: </span>
+                    <strong style={{ color: '#2563eb', wordBreak: 'break-word' }}>
+                      {(savedInvoiceData.customer?.area || 'UNASSIGNED').toUpperCase()}
+                    </strong>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                    <div>
-                      <strong>Date: </strong>{fmtDate(savedInvoiceData.invoiceDate)}
-                      <span style={{ marginLeft: 16 }}><strong>Day: </strong>{getDayName(savedInvoiceData.invoiceDate)}</span>
-                      <span style={{ marginLeft: 16 }}><strong>Made At: </strong>{formatTime(savedInvoiceData.createdAt)}</span>
-                    </div>
-                    {savedInvoiceData.salesman && (
-                      <div>
-                        <strong>Salesman: </strong>{savedInvoiceData.salesman}
-                      </div>
+                  {/* Row 3: Date/Day/Time & Salesman */}
+                  <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: '4px 14px', fontSize: 11 }}>
+                    <span><span style={{ color: '#475569', fontWeight: 600 }}>Date: </span><strong>{fmtDate(savedInvoiceData.invoiceDate)}</strong></span>
+                    <span><span style={{ color: '#475569', fontWeight: 600 }}>Day: </span><strong>{getDayName(savedInvoiceData.invoiceDate)}</strong></span>
+                    <span><span style={{ color: '#475569', fontWeight: 600 }}>Made At: </span><strong>{formatTime(savedInvoiceData.createdAt)}</strong></span>
+                  </div>
+                  <div style={{ minWidth: 0, textAlign: 'right', fontSize: 11 }}>
+                    {savedInvoiceData.salesman ? (
+                      <>
+                        <span style={{ color: '#475569', fontWeight: 600 }}>Salesman: </span>
+                        <strong style={{ color: '#0f172a' }}>{savedInvoiceData.salesman}</strong>
+                      </>
+                    ) : (
+                      <span style={{ color: '#94a3b8' }}>Salesman: —</span>
                     )}
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                    <div>
-                      <strong>User: </strong>{(user?.ownerName || 'ADMIN').toUpperCase()}
-                      <span style={{ marginLeft: 20 }}>
-                        <strong>Status: </strong>
-                        <span style={{ fontWeight: 800, color: (savedInvoiceData.printCount || 0) > 0 ? '#b45309' : '#166534' }}>
-                          {(savedInvoiceData.printCount || 0) > 0 ? 'COPY' : 'ORIGINAL'}
-                        </span>
-                      </span>
-                    </div>
-                    <div>
-                      <strong>Printed At: </strong>{new Date().toLocaleString('en-PK')}
-                    </div>
+                  {/* Row 4: User/Status & Printed At */}
+                  <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 14, fontSize: 11 }}>
+                    <span><span style={{ color: '#475569', fontWeight: 600 }}>User: </span><strong>{(user?.ownerName || 'ADMIN').toUpperCase()}</strong></span>
+                    <span>
+                      <span style={{ color: '#475569', fontWeight: 600 }}>Status: </span>
+                      <strong style={{ color: (savedInvoiceData.printCount || 0) > 0 ? '#b45309' : '#166534' }}>
+                        {(savedInvoiceData.printCount || 0) > 0 ? 'COPY' : 'ORIGINAL'}
+                      </strong>
+                    </span>
+                  </div>
+                  <div style={{ minWidth: 0, textAlign: 'right', fontSize: 10.5, color: '#475569' }}>
+                    <span style={{ fontWeight: 600 }}>Printed At: </span>{new Date().toLocaleString('en-PK')}
                   </div>
 
+                  {/* Optional Note row spanning full width */}
                   {savedInvoiceData.notes && (
-                    <div style={{ marginTop: 4, fontStyle: 'italic', color: '#475569' }}>
-                      <strong>Note: </strong>{savedInvoiceData.notes}
+                    <div style={{ gridColumn: '1 / -1', borderTop: '1px dashed #cbd5e1', paddingTop: 6, marginTop: 2, fontSize: 11, color: '#334155' }}>
+                      <strong style={{ color: '#475569' }}>Note: </strong>{savedInvoiceData.notes}
                     </div>
                   )}
                 </div>
@@ -1777,6 +1833,8 @@ export default function Invoicing() {
                 <table
                   style={{
                     width: '100%',
+                    minWidth: 760,
+                    tableLayout: 'fixed',
                     borderCollapse: 'collapse',
                     fontSize: 11,
                     marginBottom: 8,
@@ -1784,19 +1842,19 @@ export default function Invoicing() {
                 >
                   <thead>
                     <tr style={{ background: '#1e293b', color: '#ffffff', fontSize: 10, textAlign: 'left' }}>
-                      <th style={{ padding: '5px 4px', textAlign: 'center', width: 25 }}>S#</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'center', width: 35 }}>PKT</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'right', width: 65 }}>PRICE</th>
-                      <th style={{ padding: '5px 6px' }}>ITEM</th>
-                      <th style={{ padding: '5px 4px', width: 55 }}>PACKING</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'center', width: 45 }}>DIS%</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'right', width: 55 }}>DIS AMT</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'center', width: 35 }}>ST/U</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'right', width: 45 }}>ST</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'right', width: 65 }}>NET</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'center', width: 35 }}>PCS</th>
-                      <th style={{ padding: '5px 4px', width: 60 }}>BATCH</th>
-                      <th style={{ padding: '5px 4px', textAlign: 'right', width: 65 }}>GROSS</th>
+                      <th className="col-seq" style={{ padding: '6px 4px', textAlign: 'center', width: '3.5%', minWidth: 28 }}>S#</th>
+                      <th className="col-pkt" style={{ padding: '6px 4px', textAlign: 'center', width: '4.8%', minWidth: 36 }}>PKT</th>
+                      <th className="col-price" style={{ padding: '6px 4px', textAlign: 'right', width: '8.5%', minWidth: 64 }}>PRICE</th>
+                      <th className="col-item" style={{ padding: '6px 8px', textAlign: 'left', width: '22%', minWidth: 160 }}>ITEM</th>
+                      <th className="col-packing" style={{ padding: '6px 4px', textAlign: 'left', width: '7%', minWidth: 52 }}>PACKING</th>
+                      <th className="col-disc" style={{ padding: '6px 4px', textAlign: 'center', width: '4.8%', minWidth: 38 }}>DIS%</th>
+                      <th className="col-discamt" style={{ padding: '6px 4px', textAlign: 'right', width: '7%', minWidth: 54 }}>DIS AMT</th>
+                      <th className="col-stu" style={{ padding: '6px 4px', textAlign: 'center', width: '4.5%', minWidth: 34 }}>ST/U</th>
+                      <th className="col-st" style={{ padding: '6px 4px', textAlign: 'right', width: '5.5%', minWidth: 42 }}>ST</th>
+                      <th className="col-net" style={{ padding: '6px 4px', textAlign: 'right', width: '9%', minWidth: 68 }}>NET</th>
+                      <th className="col-pcs" style={{ padding: '6px 4px', textAlign: 'center', width: '4.5%', minWidth: 34 }}>PCS</th>
+                      <th className="col-batch" style={{ padding: '6px 4px', textAlign: 'left', width: '9%', minWidth: 68 }}>BATCH</th>
+                      <th className="col-gross" style={{ padding: '6px 4px', textAlign: 'right', width: '8.5%', minWidth: 64 }}>GROSS</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1811,6 +1869,7 @@ export default function Invoicing() {
                       const stu = parseFloat(item.schemeUnits || 0);
                       const st = parseFloat(item.schemeTotal || 0);
                       const pcs = parseFloat(item.freePcs || 0);
+                      const itemName = (item.product?.productName || item.customName || '—').toUpperCase();
 
                       return (
                         <tr
@@ -1820,39 +1879,48 @@ export default function Invoicing() {
                             background: idx % 2 === 1 ? '#f8fafc' : '#ffffff',
                           }}
                         >
-                          <td style={{ padding: '4px', textAlign: 'center', color: '#64748b' }}>{idx + 1}</td>
-                          <td style={{ padding: '4px', textAlign: 'center', fontWeight: 600 }}>{qty}</td>
-                          <td style={{ padding: '4px', textAlign: 'right', fontWeight: 600 }}>
+                          <td className="col-seq" style={{ padding: '5px 4px', textAlign: 'center', color: '#64748b' }}>
+                            {idx + 1}
+                          </td>
+                          <td className="col-pkt" style={{ padding: '5px 4px', textAlign: 'center', fontWeight: 600 }}>
+                            {qty}
+                          </td>
+                          <td className="col-price" style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>
                             {unitPrice.toFixed(0)} <span style={{ fontSize: 9, color: '#2563eb' }}>{suffix}</span>
                           </td>
-                          <td style={{ padding: '4px 6px', fontWeight: 700 }}>
-                            {(item.product?.productName || '—').toUpperCase()}
+                          <td className="col-item" style={{ padding: '5px 8px', fontWeight: 700, wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                            {itemName}
+                            {item.customName && !item.product && (
+                              <span style={{ fontSize: 9, marginLeft: 5, padding: '1px 5px', borderRadius: 3, background: '#fef3c7', color: '#92400e', fontWeight: 700 }}>
+                                MANUAL
+                              </span>
+                            )}
                           </td>
-                          <td style={{ padding: '4px', color: '#475569' }}>
+                          <td className="col-packing" style={{ padding: '5px 4px', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {item.packing || item.product?.unit || '—'}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'center' }}>
+                          <td className="col-disc" style={{ padding: '5px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             {parseFloat(item.discount || 0) > 0 ? `${parseFloat(item.discount)}%` : '0%'}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'right' }}>
+                          <td className="col-discamt" style={{ padding: '5px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {discAmt > 0 ? discAmt.toFixed(0) : '0'}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'center' }}>
+                          <td className="col-stu" style={{ padding: '5px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             {stu > 0 ? stu : '0'}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'right' }}>
+                          <td className="col-st" style={{ padding: '5px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {st > 0 ? st.toFixed(0) : '0'}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'right', fontWeight: 700 }}>
+                          <td className="col-net" style={{ padding: '5px 4px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap' }}>
                             {net.toFixed(0)}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'center' }}>
+                          <td className="col-pcs" style={{ padding: '5px 4px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             {pcs > 0 ? pcs : '0'}
                           </td>
-                          <td style={{ padding: '4px', fontSize: 10, color: '#475569' }}>
+                          <td className="col-batch" style={{ padding: '5px 4px', fontSize: 10, color: '#475569', wordBreak: 'break-all' }}>
                             {item.batchNo || item.product?.batchNo || '—'}
                           </td>
-                          <td style={{ padding: '4px', textAlign: 'right' }}>
+                          <td className="col-gross" style={{ padding: '5px 4px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                             {gross.toFixed(0)}
                           </td>
                         </tr>
@@ -1876,9 +1944,10 @@ export default function Invoicing() {
                   return (
                     <>
                       <div
+                        className="invoice-total-row"
                         style={{
                           background: '#f1f5f9',
-                          padding: '6px 10px',
+                          padding: '6px 12px',
                           display: 'flex',
                           justifyContent: 'space-between',
                           alignItems: 'center',
@@ -1886,45 +1955,56 @@ export default function Invoicing() {
                           fontSize: 11,
                           borderTop: '1px solid #cbd5e1',
                           borderBottom: '1px solid #cbd5e1',
-                          marginBottom: 12,
+                          marginBottom: 10,
+                          flexWrap: 'wrap',
+                          gap: '6px 16px',
                         }}
                       >
-                        <div>&lt;&lt; TOTAL &gt;&gt;</div>
-                        <div style={{ display: 'flex', gap: 20 }}>
+                        <div style={{ letterSpacing: '0.05em' }}>&lt;&lt; TOTAL &gt;&gt;</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 20px', fontVariantNumeric: 'tabular-nums' }}>
                           <span>Dis Amt: {totDisc.toFixed(0)}</span>
                           <span>Gross: {totGross.toFixed(0)}</span>
                           <span>Scheme: {totScheme.toFixed(0)}</span>
-                          <span>Net: {totNet.toFixed(0)}</span>
+                          <span style={{ color: '#1e40af' }}>Net: {totNet.toFixed(0)}</span>
                         </div>
                       </div>
 
                       {/* Footer Balance Block matching reference */}
                       <div
+                        className="invoice-balance-grid"
                         style={{
                           border: '1.5px solid #cbd5e1',
                           borderRadius: 4,
                           padding: '8px 14px',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                          gap: '8px 16px',
                           fontSize: 12,
                           fontWeight: 700,
                           background: '#fafafa',
+                          alignItems: 'center',
+                          fontVariantNumeric: 'tabular-nums',
                         }}
                       >
                         <div>
-                          Inv Total: Rs {totNet.toLocaleString('en-PK', { minimumFractionDigits: 0 })}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>Inv Total: </span>
+                          <strong>Rs {totNet.toLocaleString('en-PK', { minimumFractionDigits: 0 })}</strong>
                         </div>
                         <div>
-                          Prv: Rs {prv.toLocaleString('en-PK', { minimumFractionDigits: 0 })}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>Prv: </span>
+                          <strong style={{ color: prv > 0 ? '#b45309' : '#166534' }}>
+                            Rs {prv.toLocaleString('en-PK', { minimumFractionDigits: 0 })}
+                          </strong>
                         </div>
                         {paidVal > 0 && (
                           <div style={{ color: '#166534' }}>
-                            Paid: Rs {paidVal.toLocaleString('en-PK', { minimumFractionDigits: 0 })}
+                            <span style={{ color: '#64748b', fontSize: 11 }}>Paid: </span>
+                            <strong>Rs {paidVal.toLocaleString('en-PK', { minimumFractionDigits: 0 })}</strong>
                           </div>
                         )}
                         <div style={{ color: '#1e40af', fontSize: 13 }}>
-                          Balance: Rs {balVal.toLocaleString('en-PK', { minimumFractionDigits: 0 })}
+                          <span style={{ color: '#64748b', fontSize: 11 }}>Balance: </span>
+                          <strong>Rs {balVal.toLocaleString('en-PK', { minimumFractionDigits: 0 })}</strong>
                         </div>
                       </div>
                     </>
