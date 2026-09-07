@@ -493,40 +493,197 @@ html, body, #root {
 }
 .btn-icon svg { width: 14px; height: 14px; }
 
-/* ── Forms ───────────────────────────────────────────────────── */
+/* ── Forms & Modern Input Design System ───────────────────────── */
 .form-group { margin-bottom: 14px; }
-.form-label {
-  display: block;
+
+/* 1. Label Styling */
+.form-label,
+label.form-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11.5px;
   font-weight: 700;
-  color: var(--text-muted);
-  margin-bottom: 5px;
+  color: #374151;
+  margin-bottom: 6px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  user-select: none;
 }
+
+.form-label .req,
+.form-label .required,
+.form-label span.req {
+  color: #DC2626;
+  font-weight: 800;
+  font-size: 12px;
+  margin-left: 2px;
+}
+
+/* 2. Global Modern Inputs, Controls, Selects & Textareas */
 .form-input,
+.form-control,
 .form-select,
-.form-textarea {
+.form-textarea,
+input[type="text"]:not(.raw-input),
+input[type="number"]:not(.raw-input),
+input[type="email"]:not(.raw-input),
+input[type="password"]:not(.raw-input),
+input[type="date"]:not(.raw-input),
+input[type="search"]:not(.raw-input),
+input[type="tel"]:not(.raw-input),
+select:not(.raw-select),
+textarea:not(.raw-textarea) {
   width: 100%;
-  padding: 8px 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
+  min-height: 38px;
+  height: 38px;
+  padding: 8px 12px;
+  font-size: 13.5px;
   font-family: inherit;
-  color: var(--text);
-  background: var(--white);
-  transition: border-color var(--transition), box-shadow var(--transition);
+  color: #1E293B;
+  background-color: #FFFFFF;
+  border: 1.5px solid #D5DDD7;
+  border-radius: 7px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(0, 0, 0, 0.02);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   outline: none;
 }
-.form-input:focus,
-.form-select:focus,
-.form-textarea:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(15,110,79,0.15);
+
+/* 3. Hover State */
+.form-input:hover:not(:disabled):not([readonly]),
+.form-control:hover:not(:disabled):not([readonly]),
+.form-select:hover:not(:disabled):not([readonly]),
+.form-textarea:hover:not(:disabled):not([readonly]),
+input[type="text"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+input[type="number"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+input[type="email"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+input[type="password"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+input[type="date"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+input[type="search"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+input[type="tel"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+select:hover:not(:disabled):not([readonly]):not(.raw-select),
+textarea:hover:not(:disabled):not([readonly]):not(.raw-textarea) {
+  border-color: #A3B3A8;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
-.form-input.error { border-color: var(--alert); }
-.form-error { font-size: 11px; color: var(--alert); margin-top: 3px; font-weight: 500; }
-.form-hint  { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+
+/* 4. Focus State — Tasteful Brand Green Glow */
+.form-input:focus,
+.form-control:focus,
+.form-select:focus,
+.form-textarea:focus,
+input[type="text"]:focus:not(.raw-input),
+input[type="number"]:focus:not(.raw-input),
+input[type="email"]:focus:not(.raw-input),
+input[type="password"]:focus:not(.raw-input),
+input[type="date"]:focus:not(.raw-input),
+input[type="search"]:focus:not(.raw-input),
+input[type="tel"]:focus:not(.raw-input),
+select:focus:not(.raw-select),
+textarea:focus:not(.raw-textarea) {
+  border-color: #0F6E4F !important;
+  box-shadow: 0 0 0 3.5px rgba(15, 110, 79, 0.16), 0 1px 2px rgba(15, 110, 79, 0.06) !important;
+  background-color: #FFFFFF;
+}
+
+/* 5. Placeholder Styling */
+::placeholder,
+::-webkit-input-placeholder,
+:-ms-input-placeholder {
+  color: #94A3B8 !important;
+  opacity: 1 !important;
+  font-weight: 400 !important;
+}
+
+/* 6. Textarea Specifics */
+.form-textarea,
+textarea:not(.raw-textarea) {
+  height: auto;
+  min-height: 84px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+/* 7. Dropdown / <select> Styling with Custom Chevron */
+.form-select,
+select:not(.raw-select) {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 14px 14px;
+  padding-right: 32px;
+  cursor: pointer;
+}
+.form-select:focus,
+select:focus:not(.raw-select) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230F6E4F' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* 8. Error / Validation State */
+.form-input.error,
+.form-input.is-invalid,
+.form-control.error,
+.form-control.is-invalid,
+.form-select.error,
+.form-select.is-invalid {
+  border-color: #EF4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16) !important;
+}
+.form-error,
+.invalid-feedback {
+  font-size: 11.5px;
+  color: #DC2626;
+  margin-top: 4px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.form-hint {
+  font-size: 11.5px;
+  color: #64748B;
+  margin-top: 4px;
+}
+
+/* 9. Read-only & Disabled States */
+input:disabled,
+select:disabled,
+textarea:disabled,
+.form-input:disabled,
+.form-control:disabled,
+.form-select:disabled {
+  background-color: #F1F5F2 !important;
+  border-color: #E2E8F0 !important;
+  color: #64748B !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  opacity: 0.82;
+}
+
+input[readonly],
+.form-input[readonly],
+.form-control[readonly] {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+  color: #475569 !important;
+  cursor: default;
+  box-shadow: none !important;
+}
+
+/* 10. Compact / Table Cell Inputs */
+.form-input-sm,
+table td input.form-input,
+table td select.form-select {
+  min-height: 28px;
+  height: 28px;
+  padding: 3px 8px;
+  font-size: 12px;
+  border-radius: 5px;
+}
+
 .form-section-title {
   font-size: 12px;
   font-weight: 700;
@@ -541,7 +698,7 @@ html, body, #root {
   gap: 6px;
 }
 
-/* ── Search bar ──────────────────────────────────────────────── */
+/* ── Search bar & Search Inputs ──────────────────────────────── */
 .search-bar {
   display: flex;
   align-items: center;
@@ -553,35 +710,31 @@ html, body, #root {
   flex: 1;
   max-width: 380px;
 }
-.search-input-wrap svg {
+.search-input-wrap svg,
+.search-bar svg {
   position: absolute;
-  left: 10px;
+  left: 11px;
   top: 50%;
   transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
-  color: var(--text-muted);
+  width: 15px;
+  height: 15px;
+  color: #64748B;
   pointer-events: none;
+  transition: color 180ms ease;
 }
-.search-input-wrap input {
-  width: 100%;
-  padding: 8px 12px 8px 34px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 13px;
-  font-family: inherit;
-  background: var(--white);
-  outline: none;
-  transition: border-color var(--transition), box-shadow var(--transition);
-  box-shadow: var(--shadow-xs);
+.search-input-wrap input,
+.search-bar input {
+  padding-left: 36px !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
 }
-.search-input-wrap input:focus {
-  border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(15,110,79,0.14);
+.search-input-wrap:focus-within svg,
+.search-bar:focus-within svg {
+  color: #0F6E4F;
 }
 
-/* ── Modal ───────────────────────────────────────────────────── */
-.modal-overlay {
+/* ── Modal & Dialog Standard ─────────────────────────────────── */
+.modal-overlay,
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
@@ -598,7 +751,8 @@ html, body, #root {
   to { opacity: 1; }
 }
 
-.modal {
+.modal,
+.modal-box {
   background: var(--white);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
