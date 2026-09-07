@@ -81,6 +81,43 @@ export default function Invoicing() {
     setHighlightedProductIdx(0);
   }, [debouncedProductSearch]);
 
+  const [pendingFocusItem, setPendingFocusItem] = useState(null);
+  const [highlightRowIdx, setHighlightRowIdx] = useState(null);
+
+  // Auto-focus and scroll to newly added item (Quantity or Manual Name)
+  useEffect(() => {
+    if (pendingFocusItem !== null) {
+      const { idx, field } = pendingFocusItem;
+      setPendingFocusItem(null);
+
+      const timer = setTimeout(() => {
+        let el = null;
+        if (field === 'name') {
+          el = document.getElementById(`manual-item-name-${idx}`) ||
+               document.getElementById(`mobile-manual-item-name-${idx}`);
+        } else {
+          el = document.getElementById(`item-qty-${idx}`) ||
+               document.getElementById(`mobile-item-qty-${idx}`);
+        }
+
+        if (el) {
+          el.focus();
+          if (typeof el.select === 'function') el.select();
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }, 60);
+
+      setHighlightRowIdx(idx);
+      const hlTimer = setTimeout(() => {
+        setHighlightRowIdx(null);
+      }, 2000);
+
+      return () => {
+        clearTimeout(hlTimer);
+      };
+    }
+  }, [pendingFocusItem]);
+
   // Auto-focus customer on initial mount for rapid keyboard entry
   useEffect(() => {
     const custEl = document.getElementById('inv-customer');
@@ -118,7 +155,11 @@ export default function Invoicing() {
 
   function addProduct(p) {
     if (items.find((i) => i.productId === p.id)) {
-      toast('Product already in list — adjust quantity in the table.', { icon: 'ℹ️' });
+      toast('Product already in list — adjusting quantity in table.', { icon: 'ℹ️' });
+      const existingIdx = items.findIndex((i) => i.productId === p.id);
+      if (existingIdx !== -1) {
+        setPendingFocusItem({ idx: existingIdx, field: 'qty' });
+      }
       return;
     }
     if (parseFloat(p.stockQty) <= 0) {
@@ -153,6 +194,7 @@ export default function Invoicing() {
       }
     }
 
+    const newIdx = items.length;
     setItems((prev) => [
       ...prev,
       {
@@ -174,6 +216,7 @@ export default function Invoicing() {
       },
     ]);
     setProductSearch('');
+    setPendingFocusItem({ idx: newIdx, field: 'qty' });
   }
 
   function handleModeChange(idx, newMode) {
@@ -202,6 +245,7 @@ export default function Invoicing() {
 
   // Item #12: Manual Product Entry on Invoicing
   function addManualItem() {
+    const newIdx = items.length;
     setItems((prev) => [
       ...prev,
       {
@@ -223,12 +267,7 @@ export default function Invoicing() {
         offer: null,
       },
     ]);
-    setTimeout(() => {
-      const inputs = document.querySelectorAll('.manual-item-input');
-      if (inputs.length > 0) {
-        inputs[inputs.length - 1]?.focus();
-      }
-    }, 60);
+    setPendingFocusItem({ idx: newIdx, field: 'name' });
   }
 
   // Line & grand total calculations
@@ -838,13 +877,6 @@ export default function Invoicing() {
                         const chosen = products[highlightedProductIdx] || products[0];
                         if (chosen) {
                           addProduct(chosen);
-                          setTimeout(() => {
-                            const lastQty = document.querySelector('.item-qty-input-last');
-                            if (lastQty) {
-                              lastQty.focus();
-                              lastQty.select();
-                            }
-                          }, 60);
                         }
                       } else if (!productSearch.trim() && items.length > 0) {
                         // Empty search + Enter -> go to Paid Amount or Save
@@ -892,16 +924,7 @@ export default function Invoicing() {
                           borderLeft: isSelected ? '3px solid #2563eb' : '3px solid transparent',
                           transition: 'background 100ms ease',
                         }}
-                        onClick={() => {
-                          addProduct(p);
-                          setTimeout(() => {
-                            const lastQty = document.querySelector('.item-qty-input-last');
-                            if (lastQty) {
-                              lastQty.focus();
-                              lastQty.select();
-                            }
-                          }, 60);
-                        }}
+                        onClick={() => addProduct(p)}
                         onMouseEnter={() => setHighlightedProductIdx(pIdx)}
                       >
                         <div>
@@ -1011,7 +1034,12 @@ export default function Invoicing() {
                           key={item.productId || `manual-${idx}`}
                           style={{
                             background:
-                              !item.isManual && qty > item.availableQty ? '#FFF9F9' : undefined,
+                              !item.isManual && qty > item.availableQty
+                                ? '#FFF9F9'
+                                : highlightRowIdx === idx
+                                ? '#ECFDF5'
+                                : undefined,
+                            transition: 'background 250ms ease',
                           }}
                         >
                           <td style={{ fontWeight: 500 }}>
@@ -1028,7 +1056,7 @@ export default function Invoicing() {
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') {
                                       e.preventDefault();
-                                      const qtyEl = document.getElementById(`item-qty-${idx}`);
+                                      const qtyEl = document.getElementById(`item-qty-${idx}`) || document.getElementById(`mobile-item-qty-${idx}`);
                                       if (qtyEl) { qtyEl.focus(); qtyEl.select(); }
                                     }
                                   }}
@@ -1108,7 +1136,7 @@ export default function Invoicing() {
                             </select>
                           </td>
 
-                          {/* Quantity (PKT) */}
+                          {/* Quantity (PKT) — Prominent with auto-select & clear focus halo */}
                           <td className="num">
                             <input
                               id={`item-qty-${idx}`}
@@ -1116,7 +1144,15 @@ export default function Invoicing() {
                               min="0.001"
                               step="0.001"
                               className={`form-input tabular item-qty-input ${idx === items.length - 1 ? 'item-qty-input-last' : ''}`}
-                              style={{ width: 60, padding: '4px 6px', textAlign: 'center', fontWeight: 600 }}
+                              style={{
+                                width: 72,
+                                padding: '4px 6px',
+                                textAlign: 'center',
+                                fontWeight: 700,
+                                fontSize: 13,
+                                borderColor: highlightRowIdx === idx ? 'var(--brand)' : undefined,
+                                boxShadow: highlightRowIdx === idx ? '0 0 0 3.5px rgba(15, 110, 79, 0.22)' : undefined,
+                              }}
                               value={item.qty}
                               onChange={(e) => updateItem(idx, 'qty', e.target.value)}
                               onKeyDown={(e) => {
@@ -1131,7 +1167,8 @@ export default function Invoicing() {
                                     discEl.focus();
                                     discEl.select();
                                   } else {
-                                    document.getElementById('prod-search-inv')?.focus();
+                                    const searchEl = document.getElementById('prod-search-inv');
+                                    if (searchEl) { searchEl.focus(); searchEl.select(); }
                                   }
                                 }
                               }}
@@ -1196,7 +1233,8 @@ export default function Invoicing() {
                                       discEl.focus();
                                       discEl.select();
                                     } else {
-                                      document.getElementById('prod-search-inv')?.focus();
+                                      const searchEl = document.getElementById('prod-search-inv');
+                                      if (searchEl) { searchEl.focus(); searchEl.select(); }
                                     }
                                   }
                                 }}
@@ -1243,13 +1281,17 @@ export default function Invoicing() {
                               max="100"
                               step="0.5"
                               className="form-input tabular"
-                              style={{ width: 55, padding: '4px 6px', textAlign: 'center' }}
+                              style={{ width: 60, padding: '4px 6px', textAlign: 'center' }}
                               value={item.discount}
                               onChange={(e) => updateItem(idx, 'discount', e.target.value)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault();
-                                  document.getElementById('prod-search-inv')?.focus();
+                                  const searchEl = document.getElementById('prod-search-inv');
+                                  if (searchEl) {
+                                    searchEl.focus();
+                                    searchEl.select();
+                                  }
                                 }
                               }}
                             />
@@ -1305,55 +1347,230 @@ export default function Invoicing() {
               </table>
             </div>
 
-            {/* Mobile items view */}
+            {/* Mobile items view — Complete with Quantity, Modes, Price, and Discounts */}
             {items.length > 0 && (
               <div className="inv-mobile-items">
-                {items.map((item, idx) => (
-                  <div
-                    key={item.productId}
-                    style={{
-                      padding: '10px 12px',
-                      borderBottom: '1px solid var(--border)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <div style={{ fontWeight: 600 }}>{item.productName}</div>
-                      <button
-                        className="btn-icon"
-                        onClick={() => removeItem(idx)}
-                        style={{ color: 'var(--alert)' }}
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 6 }}>
-                      <div>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>Pricing Mode</span>
-                        <select
-                          className="form-select"
-                          value={item.pricingMode}
-                          onChange={(e) => handleModeChange(idx, e.target.value)}
+                {items.map((item, idx) => {
+                  const qty = parseFloat(item.qty) || 0;
+                  const price = parseFloat(item.unitPrice) || 0;
+                  const gross = qty * price;
+                  const discAmt = gross * ((parseFloat(item.discount) || 0) / 100);
+                  const net = gross - discAmt;
+                  const isHighlighted = highlightRowIdx === idx;
+
+                  return (
+                    <div
+                      key={item.productId || `manual-mobile-${idx}`}
+                      style={{
+                        padding: '12px 14px',
+                        borderBottom: '1px solid var(--border)',
+                        background: isHighlighted ? '#F0FDF4' : '#FFFFFF',
+                        borderRadius: 8,
+                        margin: '8px 4px',
+                        boxShadow: isHighlighted ? '0 0 0 2px var(--brand)' : 'var(--shadow-xs)',
+                        transition: 'background 250ms ease, box-shadow 250ms ease',
+                      }}
+                    >
+                      {/* Header: Product Name & Delete */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          {item.isManual ? (
+                            <div>
+                              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand)' }}>Manual Item Name *</label>
+                              <input
+                                id={`mobile-manual-item-name-${idx}`}
+                                type="text"
+                                className="form-input"
+                                placeholder="Enter custom item name..."
+                                value={item.productName}
+                                onChange={(e) => updateItem(idx, 'productName', e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const qtyEl = document.getElementById(`mobile-item-qty-${idx}`);
+                                    if (qtyEl) { qtyEl.focus(); qtyEl.select(); }
+                                  }
+                                }}
+                                style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}
+                              />
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ fontWeight: 700, fontSize: 13.5, color: '#0F172A' }}>{item.productName}</div>
+                              <div style={{ fontSize: 11, color: '#64748B', marginTop: 2, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <span>Unit: {item.unit}</span>
+                                {item.batchNo && <span>• Batch: {item.batchNo}</span>}
+                                <span>• Stock: {item.availableQty}</span>
+                                {item.offer && (
+                                  <span className={`badge ${getOfferBadgeClass(item.offer.offerType)}`} style={{ fontSize: 10 }}>
+                                    {item.offer.offerLabel}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-icon"
+                          onClick={() => removeItem(idx)}
+                          style={{ color: 'var(--alert)', padding: 6 }}
+                          title="Remove Item"
                         >
-                          <option value="TP">TP (Trade)</option>
-                          <option value="RETAIL">Retail (MRP)</option>
-                          <option value="NET">Net (Custom)</option>
-                        </select>
+                          <Trash2 size={16} />
+                        </button>
                       </div>
-                      <div>
-                        <span style={{ fontSize: 11, color: '#64748b' }}>
-                          Unit Price ({item.pricingMode === 'TP' ? 'T' : item.pricingMode === 'RETAIL' ? 'R (Locked)' : 'N'})
+
+                      {/* Row 1: Quantity & Pricing Mode */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10, marginTop: 10 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 700, color: '#1E293B', display: 'flex', justifyContent: 'space-between' }}>
+                            <span>QUANTITY *</span>
+                            <span style={{ fontSize: 10, color: '#64748B', fontWeight: 500 }}>({item.unit})</span>
+                          </label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              style={{ minWidth: 32, height: 36, padding: 0, fontWeight: 700, fontSize: 16 }}
+                              onClick={() => {
+                                const cur = parseFloat(item.qty) || 1;
+                                if (cur > 1) updateItem(idx, 'qty', cur - 1);
+                              }}
+                            >
+                              −
+                            </button>
+                            <input
+                              id={`mobile-item-qty-${idx}`}
+                              type="number"
+                              min="0.001"
+                              step="0.001"
+                              className="form-input tabular"
+                              style={{
+                                height: 36,
+                                textAlign: 'center',
+                                fontWeight: 700,
+                                fontSize: 14,
+                                borderColor: isHighlighted ? 'var(--brand)' : undefined,
+                                boxShadow: isHighlighted ? '0 0 0 3px rgba(15, 110, 79, 0.2)' : undefined,
+                              }}
+                              value={item.qty}
+                              onChange={(e) => updateItem(idx, 'qty', e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  if (item.isManual || item.pricingMode === 'NET') {
+                                    const pEl = document.getElementById(`mobile-item-price-${idx}`);
+                                    if (pEl) { pEl.focus(); pEl.select(); return; }
+                                  }
+                                  const dEl = document.getElementById(`mobile-item-disc-${idx}`);
+                                  if (dEl) { dEl.focus(); dEl.select(); }
+                                  else { document.getElementById('prod-search-inv')?.focus(); }
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm"
+                              style={{ minWidth: 32, height: 36, padding: 0, fontWeight: 700, fontSize: 16 }}
+                              onClick={() => {
+                                const cur = parseFloat(item.qty) || 0;
+                                updateItem(idx, 'qty', cur + 1);
+                              }}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 700, color: '#1E293B' }}>PRICING MODE</label>
+                          <select
+                            className="form-select"
+                            style={{ height: 36, fontSize: 12, marginTop: 3, fontWeight: 600 }}
+                            value={item.pricingMode}
+                            onChange={(e) => handleModeChange(idx, e.target.value)}
+                          >
+                            <option value="RETAIL">Retail (MRP)</option>
+                            <option value="TP">TP (Trade)</option>
+                            <option value="NET">Net (Custom)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Unit Price & Discount */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 8 }}>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>
+                            Unit Price {item.pricingMode === 'RETAIL' && '🔒 (Locked)'}
+                          </label>
+                          <input
+                            id={`mobile-item-price-${idx}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="form-input"
+                            style={{
+                              height: 36,
+                              fontSize: 13,
+                              marginTop: 3,
+                              background: (!item.isManual && item.pricingMode === 'RETAIL') ? '#F1F5F9' : '#FFFFFF',
+                            }}
+                            value={item.unitPrice}
+                            readOnly={!item.isManual && (item.pricingMode === 'RETAIL' || item.pricingMode === 'TP')}
+                            onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const dEl = document.getElementById(`mobile-item-disc-${idx}`);
+                                if (dEl) { dEl.focus(); dEl.select(); }
+                                else { document.getElementById('prod-search-inv')?.focus(); }
+                              }
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>Discount %</label>
+                          <input
+                            id={`mobile-item-disc-${idx}`}
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            className="form-input"
+                            style={{ height: 36, fontSize: 13, marginTop: 3, textAlign: 'center' }}
+                            value={item.discount}
+                            onChange={(e) => updateItem(idx, 'discount', e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                document.getElementById('prod-search-inv')?.focus();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row 3: Subtotal / Net Total */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: 10,
+                        paddingTop: 8,
+                        borderTop: '1px dashed var(--border)',
+                        fontSize: 12
+                      }}>
+                        <span style={{ color: '#64748B' }}>
+                          {qty} × {pkr(price)} {item.discount > 0 && `(-${item.discount}%)`}
                         </span>
-                        <input
-                          type="number"
-                          className="form-input"
-                          value={item.unitPrice}
-                          readOnly={item.pricingMode === 'RETAIL' || item.pricingMode === 'TP'}
-                          onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
-                        />
+                        <span style={{ fontWeight: 800, color: 'var(--brand)', fontSize: 13.5 }}>
+                          Net: {pkr(net)}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

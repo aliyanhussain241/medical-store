@@ -684,6 +684,20 @@ table td select.form-select {
   border-radius: 5px;
 }
 
+table td input.form-input.item-qty-input {
+  min-height: 32px;
+  height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+
+.item-qty-input::-webkit-inner-spin-button,
+.item-qty-input::-webkit-outer-spin-button {
+  opacity: 0.5;
+}
+
 .form-section-title {
   font-size: 12px;
   font-weight: 700;
