@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // src/pages/Purchasing.jsx — Purchase orders from distributors
 // ─────────────────────────────────────────────────────────────
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useDebounce from '../utils/useDebounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI, productsAPI, purchasesAPI, bankAccountsAPI } from '../api/services';
