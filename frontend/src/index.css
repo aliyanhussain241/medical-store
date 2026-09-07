@@ -778,6 +778,42 @@ table td input.form-input.item-qty-input {
   color: #0F6E4F;
 }
 
+/* Action Pill Button (e.g. + Manual Item, + New Product On The Fly) */
+.btn-action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #EFF6FF;
+  border: 1.5px solid #BFDBFE;
+  color: #1D4ED8;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.06);
+}
+.btn-action-pill:hover {
+  background-color: #DBEAFE;
+  border-color: #93C5FD;
+  color: #1E40AF;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.12);
+}
+.btn-action-pill:active {
+  transform: scale(0.97);
+}
+.btn-action-pill svg {
+  color: #2563EB;
+  flex-shrink: 0;
+}
+
+.mobile-only {
+  display: none !important;
+}
+
 /* ── Modal & Dialog Standard ─────────────────────────────────── */
 .modal-overlay,
 .modal-backdrop {
@@ -1287,6 +1323,17 @@ table td input.form-input.item-qty-input {
    PHONE BREAKPOINT — ≤ 640px
    ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
+  /* Visibility helpers */
+  .desktop-only { display: none !important; }
+  .mobile-only { display: inline-flex !important; }
+
+  /* Action Pill on mobile */
+  .btn-action-pill {
+    padding: 5px 11px;
+    font-size: 12px;
+    min-height: 32px;
+  }
+
   /* Show bottom nav */
   .bottom-nav { display: flex; }
 

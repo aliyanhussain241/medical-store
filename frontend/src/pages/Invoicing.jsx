@@ -820,21 +820,21 @@ export default function Invoicing() {
 
           {/* Product search */}
           <div className="card">
-            <div className="card-header flex justify-between items-center">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontWeight: 700 }}>3. Add Products</span>
                 <button
                   type="button"
                   id="add-manual-item-btn"
-                  className="btn btn-outline btn-sm"
+                  className="btn-action-pill"
                   onClick={addManualItem}
-                  style={{ padding: '2px 8px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, color: '#2563eb' }}
                   title="Add a custom/one-off product not in catalog"
                 >
-                  <Plus size={12} /> + Manual Item
+                  <Plus size={13} /> Manual Item
                 </button>
               </div>
               <span
+                className="desktop-only"
                 style={{
                   fontSize: 10.5,
                   fontWeight: 600,

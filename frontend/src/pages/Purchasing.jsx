@@ -240,13 +240,12 @@ export default function Purchasing() {
             </div>
 
             <div className="card">
-              <div className="card-header flex justify-between items-center">
-                <span>Add Products</span>
+              <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontWeight: 700 }}>Add Products</span>
                 <button
                   type="button"
                   id="quick-add-prod-btn"
-                  className="btn btn-outline btn-sm"
-                  style={{ padding: '2px 8px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, color: '#2563eb' }}
+                  className="btn-action-pill"
                   onClick={() => {
                     setNewProdForm({
                       productName: productSearch.trim(),
@@ -264,7 +263,7 @@ export default function Purchasing() {
                   }}
                   title="Add brand-new product to catalog directly from purchasing"
                 >
-                  <Plus size={12} /> + New Product (On The Fly)
+                  <Plus size={13} /> New Product (On The Fly)
                 </button>
               </div>
               <div className="card-body" style={{ paddingBottom: 0 }}>
