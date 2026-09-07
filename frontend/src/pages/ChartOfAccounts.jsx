@@ -181,6 +181,8 @@ export default function ChartOfAccounts() {
           <Search size={14} />
           <input
             id="coa-search"
+            type="text"
+            className="form-input"
             placeholder="Search account heads..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

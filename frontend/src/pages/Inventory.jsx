@@ -106,7 +106,7 @@ export default function Inventory() {
       <div className="search-bar">
         <div className="search-input-wrap">
           <Search size={14} />
-          <input id="product-search" placeholder="Search by name, batch, category..." value={search} onChange={handleSearch} />
+          <input id="product-search" type="text" className="form-input" placeholder="Search by name, batch, category..." value={search} onChange={handleSearch} />
         </div>
         <select className="form-select" style={{ width: 160 }} value={filter} onChange={handleFilterChange} id="product-filter">
           <option value="all">All Products</option>

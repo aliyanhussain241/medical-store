@@ -856,6 +856,8 @@ export default function Invoicing() {
                 <Search size={14} />
                 <input
                   id="prod-search-inv"
+                  type="text"
+                  className="form-input"
                   placeholder="Search product by name... (Press Enter to pick, or on empty to pay)"
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}

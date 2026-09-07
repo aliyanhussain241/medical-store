@@ -126,6 +126,8 @@ export default function Customers() {
           <Search size={14} />
           <input
             id="customer-search"
+            type="text"
+            className="form-input"
             placeholder="Search by code, name, shop, area, phone..."
             value={search}
             onChange={handleSearch}

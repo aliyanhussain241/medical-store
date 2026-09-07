@@ -78,7 +78,7 @@ export default function BankAccounts() {
       <div className="search-bar">
         <div className="search-input-wrap">
           <Search size={14} />
-          <input id="bank-search" placeholder="Search by bank name, account title, account number..." value={search} onChange={handleSearch} />
+          <input id="bank-search" type="text" className="form-input" placeholder="Search by bank name, account title, account number..." value={search} onChange={handleSearch} />
         </div>
         <span className="text-muted">{data?.total || 0} accounts</span>
       </div>

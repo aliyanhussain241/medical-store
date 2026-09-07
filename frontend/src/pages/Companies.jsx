@@ -84,7 +84,7 @@ export default function Companies() {
       <div className="search-bar">
         <div className="search-input-wrap">
           <Search size={14} />
-          <input id="company-search" placeholder="Search by name, contact, phone..." value={search} onChange={handleSearch} />
+          <input id="company-search" type="text" className="form-input" placeholder="Search by name, contact, phone..." value={search} onChange={handleSearch} />
         </div>
         <span className="text-muted">{data?.total || 0} companies</span>
       </div>

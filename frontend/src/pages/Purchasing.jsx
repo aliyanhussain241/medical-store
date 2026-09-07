@@ -272,6 +272,8 @@ export default function Purchasing() {
                   <Search size={14} />
                   <input
                     id="po-prod-search"
+                    type="text"
+                    className="form-input"
                     placeholder="Search product... (Press Enter to add, or Enter on empty to pay)"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}

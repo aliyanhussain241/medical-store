@@ -188,6 +188,8 @@ export default function Employees() {
           <Search size={14} />
           <input
             id="employee-search"
+            type="text"
+            className="form-input"
             placeholder="Search by name, designation, town..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

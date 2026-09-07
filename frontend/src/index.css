@@ -525,6 +525,7 @@ label.form-label {
 .form-control,
 .form-select,
 .form-textarea,
+input:not([type]):not(.raw-input),
 input[type="text"]:not(.raw-input),
 input[type="number"]:not(.raw-input),
 input[type="email"]:not(.raw-input),
@@ -532,6 +533,8 @@ input[type="password"]:not(.raw-input),
 input[type="date"]:not(.raw-input),
 input[type="search"]:not(.raw-input),
 input[type="tel"]:not(.raw-input),
+.search-input-wrap input,
+.search-bar input,
 select:not(.raw-select),
 textarea:not(.raw-textarea) {
   width: 100%;
@@ -554,6 +557,7 @@ textarea:not(.raw-textarea) {
 .form-control:hover:not(:disabled):not([readonly]),
 .form-select:hover:not(:disabled):not([readonly]),
 .form-textarea:hover:not(:disabled):not([readonly]),
+input:not([type]):hover:not(:disabled):not([readonly]):not(.raw-input),
 input[type="text"]:hover:not(:disabled):not([readonly]):not(.raw-input),
 input[type="number"]:hover:not(:disabled):not([readonly]):not(.raw-input),
 input[type="email"]:hover:not(:disabled):not([readonly]):not(.raw-input),
@@ -561,6 +565,8 @@ input[type="password"]:hover:not(:disabled):not([readonly]):not(.raw-input),
 input[type="date"]:hover:not(:disabled):not([readonly]):not(.raw-input),
 input[type="search"]:hover:not(:disabled):not([readonly]):not(.raw-input),
 input[type="tel"]:hover:not(:disabled):not([readonly]):not(.raw-input),
+.search-input-wrap input:hover:not(:disabled):not([readonly]),
+.search-bar input:hover:not(:disabled):not([readonly]),
 select:hover:not(:disabled):not([readonly]):not(.raw-select),
 textarea:hover:not(:disabled):not([readonly]):not(.raw-textarea) {
   border-color: #A3B3A8;
@@ -572,6 +578,7 @@ textarea:hover:not(:disabled):not([readonly]):not(.raw-textarea) {
 .form-control:focus,
 .form-select:focus,
 .form-textarea:focus,
+input:not([type]):focus:not(.raw-input),
 input[type="text"]:focus:not(.raw-input),
 input[type="number"]:focus:not(.raw-input),
 input[type="email"]:focus:not(.raw-input),
@@ -579,6 +586,8 @@ input[type="password"]:focus:not(.raw-input),
 input[type="date"]:focus:not(.raw-input),
 input[type="search"]:focus:not(.raw-input),
 input[type="tel"]:focus:not(.raw-input),
+.search-input-wrap input:focus,
+.search-bar input:focus,
 select:focus:not(.raw-select),
 textarea:focus:not(.raw-textarea) {
   border-color: #0F6E4F !important;
@@ -722,24 +731,47 @@ table td input.form-input.item-qty-input {
 .search-input-wrap {
   position: relative;
   flex: 1;
-  max-width: 380px;
+  max-width: 100%;
 }
 .search-input-wrap svg,
 .search-bar svg {
   position: absolute;
-  left: 11px;
+  left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   color: #64748B;
   pointer-events: none;
   transition: color 180ms ease;
+  z-index: 2;
 }
 .search-input-wrap input,
 .search-bar input {
-  padding-left: 36px !important;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  width: 100%;
+  min-height: 40px;
+  height: 40px;
+  padding: 8px 14px 8px 38px !important;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: #1E293B;
+  background-color: #FFFFFF;
+  border: 1.5px solid #D5DDD7;
+  border-radius: 7px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), inset 0 1px 1px rgba(0, 0, 0, 0.02);
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+  outline: none;
+}
+.search-input-wrap input:hover,
+.search-bar input:hover {
+  border-color: #A3B3A8;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.search-input-wrap input:focus,
+.search-bar input:focus {
+  border-color: #0F6E4F !important;
+  box-shadow: 0 0 0 3.5px rgba(15, 110, 79, 0.16), 0 1px 2px rgba(15, 110, 79, 0.06) !important;
+  background-color: #FFFFFF;
 }
 .search-input-wrap:focus-within svg,
 .search-bar:focus-within svg {

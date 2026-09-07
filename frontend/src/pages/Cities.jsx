@@ -103,6 +103,8 @@ export default function Cities() {
           <Search size={14} />
           <input
             id="city-search"
+            type="text"
+            className="form-input"
             placeholder="Search by city name..."
             value={search}
             onChange={handleSearch}
