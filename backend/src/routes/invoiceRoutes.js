@@ -11,7 +11,13 @@ router.get('/:id', getOne);
 router.post('/', [
   body('customerId').notEmpty().withMessage('Customer is required.'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required.'),
-  body('items.*.productId').notEmpty().withMessage('Product is required for each line item.'),
+  body('items.*.productId').optional({ nullable: true }),
+  body('items.*').custom((item) => {
+    if (!item.productId && !item.customName) {
+      throw new Error('Either product or custom item name is required for each line item.');
+    }
+    return true;
+  }),
   body('items.*.qty').isFloat({ gt: 0 }).withMessage('Quantity must be greater than 0.'),
   body('items.*.unitPrice').isFloat({ gt: 0 }).withMessage('Unit price must be greater than 0.'),
 ], create);
