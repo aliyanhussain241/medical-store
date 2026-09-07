@@ -871,10 +871,13 @@ table td select.form-select {
 /* ── Login page ──────────────────────────────────────────────── */
 .auth-page {
   min-height: 100vh;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg);
+  padding: 16px;
+  box-sizing: border-box;
 }
 .auth-card {
   background: var(--white);
@@ -883,7 +886,20 @@ table td select.form-select {
   box-shadow: var(--shadow);
   width: 100%;
   max-width: 400px;
-  padding: 36px 32px;
+  min-width: 0;
+  padding: 32px 24px;
+  box-sizing: border-box;
+  margin: 0 auto;
+}
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 12px;
+  }
+  .auth-card {
+    padding: 24px 16px;
+    max-width: 100%;
+    min-width: 0;
+  }
 }
 .auth-logo {
   text-align: center;

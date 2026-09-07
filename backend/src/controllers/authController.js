@@ -126,7 +126,7 @@ async function refresh(req, res, next) {
 
     let decoded;
     try {
-      decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+      decoded = jwt.verify(refreshToken, getRefreshSecret());
     } catch {
       return res.status(401).json({ success: false, message: 'Invalid or expired refresh token. Please log in again.' });
     }

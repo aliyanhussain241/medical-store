@@ -339,17 +339,23 @@ function generateLedgerPDF(ledgerData, user, partyType) {
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    const party = partyType === 'customer' ? ledgerData.customer : ledgerData.company;
-    const partyName = partyType === 'customer'
-      ? `${party.customerName}${party.shopName ? ' — ' + party.shopName : ''}`
-      : party.companyName;
+    const isBank = partyType === 'bank';
+    const party = isBank
+      ? (ledgerData.bankAccount || {})
+      : (partyType === 'customer' ? ledgerData.customer : ledgerData.company);
+    const partyName = isBank
+      ? `${party.bankName || 'Bank'} — ${party.accountTitle || ''} (${party.accountNumber || ''})`
+      : (partyType === 'customer'
+        ? `${party.customerName || ''}${party.shopName ? ' — ' + party.shopName : ''}`
+        : (party.companyName || ''));
 
     drawHeader(doc, user, `${partyType.toUpperCase()} LEDGER STATEMENT`, formatDate(new Date()));
 
     const y = 68;
-    doc.fillColor(COLORS.text).fontSize(9).font('Helvetica-Bold').text('Party:', 40, y);
+    doc.fillColor(COLORS.text).fontSize(9).font('Helvetica-Bold').text(isBank ? 'Bank Account:' : 'Party:', 40, y);
     doc.font('Helvetica').text(partyName, 40, y + 12);
     if (party.phone) doc.text(`Phone: ${party.phone}`, 40, y + 22);
+    if (isBank && party.branch) doc.text(`Branch: ${party.branch}`, 40, y + 22);
 
     const headers = ['Date', 'Description', 'Ref Type', 'Debit (Dr)', 'Credit (Cr)', 'Balance'];
     const colWidths = [55, 175, 65, 70, 70, 80];

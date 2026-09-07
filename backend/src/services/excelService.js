@@ -274,10 +274,15 @@ async function generateLedgerExcel(ledgerData, user, partyType) {
   wb.creator = user.businessName;
   const sheet = wb.addWorksheet('Ledger');
 
-  const party = partyType === 'customer' ? ledgerData.customer : ledgerData.company;
-  const partyName = partyType === 'customer'
-    ? `${party.customerName}${party.shopName ? ' — ' + party.shopName : ''}`
-    : party.companyName;
+  const isBank = partyType === 'bank';
+  const party = isBank
+    ? (ledgerData.bankAccount || {})
+    : (partyType === 'customer' ? ledgerData.customer : ledgerData.company);
+  const partyName = isBank
+    ? `${party.bankName || 'Bank'} — ${party.accountTitle || ''} (${party.accountNumber || ''})`
+    : (partyType === 'customer'
+      ? `${party.customerName || ''}${party.shopName ? ' — ' + party.shopName : ''}`
+      : (party.companyName || ''));
 
   const cols = [
     { header: 'Date', key: 'date', width: 14 },
@@ -291,8 +296,9 @@ async function generateLedgerExcel(ledgerData, user, partyType) {
 
   addBusinessHeader(sheet, user, `${partyType.toUpperCase()} LEDGER — ${partyName}`, cols.length);
 
-  sheet.addRow(['Party:', partyName]);
-  sheet.addRow(['Phone:', party.phone || '—']);
+  sheet.addRow([isBank ? 'Bank Account:' : 'Party:', partyName]);
+  if (party.phone) sheet.addRow(['Phone:', party.phone]);
+  if (isBank && party.branch) sheet.addRow(['Branch:', party.branch]);
   sheet.addRow([]);
 
   const headerRow = sheet.addRow(cols.map((c) => c.header));
