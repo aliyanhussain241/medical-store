@@ -136,6 +136,8 @@ model Product {
   salePrice       Decimal   @map("sale_price") @db.Decimal(15, 2)
   stockQty        Decimal   @default(0) @map("stock_qty") @db.Decimal(15, 3)
   minStockAlert   Decimal   @default(10) @map("min_stock_alert") @db.Decimal(15, 3)
+  piecesPerPack   Int?      @default(1) @map("pieces_per_pack")
+  packing         String?
   createdAt       DateTime  @default(now()) @map("created_at")
 
   user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -182,16 +184,19 @@ model Purchase {
 }
 
 model PurchaseItem {
-  id          String    @id @default(uuid())
-  purchaseId  String    @map("purchase_id")
-  productId   String    @map("product_id")
-  qty         Decimal   @db.Decimal(15, 3)
-  unitPrice   Decimal   @map("unit_price") @db.Decimal(15, 2)
-  discount    Decimal   @default(0) @db.Decimal(5, 2)   // percentage 0-100
-  total       Decimal   @db.Decimal(15, 2)
+  id            String    @id @default(uuid())
+  purchaseId    String    @map("purchase_id")
+  productId     String    @map("product_id")
+  qty           Decimal   @db.Decimal(15, 3)
+  unitPrice     Decimal   @map("unit_price") @db.Decimal(15, 2)
+  discount      Decimal   @default(0) @db.Decimal(5, 2)   // percentage 0-100
+  total         Decimal   @db.Decimal(15, 2)
+  subUnit       String?   @map("sub_unit")
+  piecesQty     Decimal?  @map("pieces_qty") @db.Decimal(15, 3)
+  piecesPerPack Int?      @map("pieces_per_pack")
 
-  purchase    Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  product     Product   @relation(fields: [productId], references: [id])
+  purchase      Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product       Product   @relation(fields: [productId], references: [id])
 
   @@index([purchaseId])
   @@index([productId])
@@ -236,7 +241,8 @@ model Invoice {
 model InvoiceItem {
   id          String    @id @default(uuid())
   invoiceId   String    @map("invoice_id")
-  productId   String    @map("product_id")
+  productId   String?   @map("product_id")
+  customName  String?   @map("custom_name")
   qty         Decimal   @db.Decimal(15, 3)
   unitPrice   Decimal   @map("unit_price") @db.Decimal(15, 2)
   pricingMode String    @default("TP") @map("pricing_mode")
@@ -251,7 +257,7 @@ model InvoiceItem {
   total       Decimal   @db.Decimal(15, 2)
 
   invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product     Product   @relation(fields: [productId], references: [id])
+  product     Product?  @relation(fields: [productId], references: [id])
 
   @@index([invoiceId])
   @@index([productId])

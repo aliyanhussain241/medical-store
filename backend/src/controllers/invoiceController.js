@@ -8,6 +8,7 @@
 // All inside a Prisma $transaction
 // ─────────────────────────────────────────────────────────────
 const { validationResult } = require('express-validator');
+const bcrypt = require('bcryptjs');
 const prisma = require('../utils/prismaClient');
 const { calcLineTotal } = require('../utils/numberUtils');
 const { getNextEntryNo } = require('./cashBookController');
@@ -139,18 +140,19 @@ async function create(req, res, next) {
       }
     }
 
-    // Fetch products
-    const productIds = items.map((i) => i.productId);
+    // Fetch products (only for catalog items)
+    const productIds = items.map((i) => i.productId).filter(Boolean);
     const uniqueIds = [...new Set(productIds)];
-    const products = await prisma.product.findMany({
+    const products = uniqueIds.length > 0 ? await prisma.product.findMany({
       where: { id: { in: uniqueIds }, userId: req.user.id },
-    });
+    }) : [];
     if (products.length !== uniqueIds.length) {
-      return res.status(400).json({ success: false, message: 'One or more products not found.' });
+      return res.status(400).json({ success: false, message: 'One or more products not found in catalog.' });
     }
 
-    // Stock check accounting for regular qty + scheme units + free pcs
+    // Stock check accounting for regular qty + scheme units + free pcs (catalog items only)
     for (const item of items) {
+      if (!item.productId) continue; // Manual / miscellaneous item skips inventory check
       const product = products.find((p) => p.id === item.productId);
       const schemeUnits = parseFloat(item.schemeUnits || 0);
       const freePcs = parseFloat(item.freePcs || 0);
@@ -165,7 +167,7 @@ async function create(req, res, next) {
 
     // Calculate line totals and reference table fields
     const lineItems = items.map((item) => {
-      const product = products.find((p) => p.id === item.productId);
+      const product = item.productId ? products.find((p) => p.id === item.productId) : null;
       const qty = parseFloat(item.qty) || 0;
       const unitPrice = parseFloat(item.unitPrice) || 0;
       const discount = parseFloat(item.discount || 0);
@@ -175,15 +177,17 @@ async function create(req, res, next) {
       const schemeUnits = parseFloat(item.schemeUnits || 0);
       const schemeTotal = parseFloat(item.schemeTotal || 0);
       const freePcs = parseFloat(item.freePcs || 0);
-      const costTotal = parseFloat((qty * parseFloat(product.purchasePrice)).toFixed(2));
+      const costTotal = product ? parseFloat((qty * parseFloat(product.purchasePrice)).toFixed(2)) : 0;
 
       return {
         ...item,
+        productId: item.productId || null,
+        customName: item.customName || (!item.productId ? (item.productName || 'Manual Item') : null),
         qty,
         unitPrice,
-        pricingMode: item.pricingMode || 'TP',
-        batchNo: item.batchNo || product.batchNo || null,
-        packing: item.packing || product.unit || null,
+        pricingMode: item.pricingMode || 'RETAIL',
+        batchNo: item.batchNo || product?.batchNo || null,
+        packing: item.packing || product?.unit || null,
         discount,
         discountAmt,
         schemeUnits,
@@ -256,7 +260,8 @@ async function create(req, res, next) {
           notes,
           items: {
             create: lineItems.map((i) => ({
-              productId: i.productId,
+              productId: i.productId || null,
+              customName: i.customName || null,
               qty: i.qty,
               unitPrice: i.unitPrice,
               pricingMode: i.pricingMode,
@@ -275,8 +280,9 @@ async function create(req, res, next) {
         include: { customer: true, items: { include: { product: true } } },
       });
 
-      // 2. Decrease stock + stock movement per item
+      // 2. Decrease stock + stock movement per item (only for catalog products)
       for (const item of lineItems) {
+        if (!item.productId) continue; // manual item skips inventory deduction
         const totalDeducted = parseFloat(item.qty) + parseFloat(item.schemeUnits || 0) + parseFloat(item.freePcs || 0);
         await tx.product.update({
           where: { id: item.productId },
@@ -546,15 +552,16 @@ async function recordPayment(req, res, next) {
 }
 
 // ── PUT /api/invoices/:id ────────────────────────────────────
-// Same-day editing only — invoice date must be today
+// Same-day or password-authorized past invoice editing with full transaction re-processing
 async function update(req, res, next) {
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: req.params.id, userId: req.user.id },
+      include: { customer: true, items: true },
     });
     if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found.' });
 
-    // Enforce same-day rule
+    // Check same-day vs past date
     const today = new Date();
     const invoiceDateObj = new Date(invoice.invoiceDate);
     const isToday =
@@ -563,28 +570,322 @@ async function update(req, res, next) {
       invoiceDateObj.getDate() === today.getDate();
 
     if (!isToday) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only today\'s invoices can be edited. For past invoices, use the "Record Payment" feature instead.',
-      });
+      const { adminPassword } = req.body;
+      if (!adminPassword) {
+        return res.status(401).json({
+          success: false,
+          requiresPassword: true,
+          message: 'Store owner password is required to edit past-dated invoices.',
+        });
+      }
+      const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+      const valid = await bcrypt.compare(adminPassword, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({
+          success: false,
+          requiresPassword: true,
+          message: 'Incorrect password. Past invoice edit not authorized.',
+        });
+      }
     }
 
-    // Only allow editing non-financial metadata fields safely
-    // (stock/ledger/cashbook were already committed — full re-processing is out of scope)
-    const { salesman, notes, narration, invoiceType } = req.body;
+    const {
+      customerId,
+      invoiceDate,
+      items,
+      paidAmount,
+      notes,
+      paymentMethod,
+      bankAccountId,
+      narration,
+      salesman,
+      invoiceType,
+    } = req.body;
 
-    const updated = await prisma.invoice.update({
-      where: { id: req.params.id },
-      data: {
-        ...(salesman !== undefined && { salesman: salesman || null }),
-        ...(notes !== undefined && { notes: notes || null }),
-        ...(narration !== undefined && { narration: narration || null }),
-        ...(invoiceType !== undefined && { invoiceType: invoiceType.toUpperCase() }),
-      },
-      include: { customer: true, items: { include: { product: true } } },
+    const targetCustomerId = customerId || invoice.customerId;
+    const method = (paymentMethod || invoice.paymentMethod || 'CASH').toUpperCase();
+    const txDate = invoiceDate ? new Date(invoiceDate) : new Date(invoice.invoiceDate);
+
+    // Validate bank account if method is BANK and paid > 0
+    let bankAccount = null;
+    const paid = parseFloat(paidAmount !== undefined ? paidAmount : invoice.paidAmount) || 0;
+    const targetBankAccountId = bankAccountId || invoice.bankAccountId;
+    if (method === 'BANK' && paid > 0) {
+      if (!targetBankAccountId) {
+        return res.status(400).json({ success: false, message: 'Bank account is required when payment method is Bank.' });
+      }
+      bankAccount = await prisma.bankAccount.findFirst({ where: { id: targetBankAccountId, userId: req.user.id } });
+      if (!bankAccount) {
+        return res.status(404).json({ success: false, message: 'Bank account not found.' });
+      }
+    }
+
+    // Process new items (or retain old items if not provided)
+    const newItemsInput = (items && items.length > 0) ? items : invoice.items;
+    const productIds = newItemsInput.map((i) => i.productId).filter(Boolean);
+    const uniqueIds = [...new Set(productIds)];
+    const products = uniqueIds.length > 0 ? await prisma.product.findMany({
+      where: { id: { in: uniqueIds }, userId: req.user.id },
+    }) : [];
+
+    // Line totals calculation
+    const lineItems = newItemsInput.map((item) => {
+      const product = item.productId ? products.find((p) => p.id === item.productId) : null;
+      const qty = parseFloat(item.qty) || 0;
+      const unitPrice = parseFloat(item.unitPrice) || 0;
+      const discount = parseFloat(item.discount || 0);
+      const grossTotal = parseFloat((qty * unitPrice).toFixed(2));
+      const discountAmt = parseFloat((grossTotal * (discount / 100)).toFixed(2));
+      const lineNet = parseFloat((grossTotal - discountAmt).toFixed(2));
+      const schemeUnits = parseFloat(item.schemeUnits || 0);
+      const schemeTotal = parseFloat(item.schemeTotal || 0);
+      const freePcs = parseFloat(item.freePcs || 0);
+      const costTotal = product ? parseFloat((qty * parseFloat(product.purchasePrice)).toFixed(2)) : 0;
+
+      return {
+        ...item,
+        productId: item.productId || null,
+        customName: item.customName || (!item.productId ? (item.productName || 'Manual Item') : null),
+        qty,
+        unitPrice,
+        pricingMode: item.pricingMode || 'RETAIL',
+        batchNo: item.batchNo || product?.batchNo || null,
+        packing: item.packing || product?.unit || null,
+        discount,
+        discountAmt,
+        schemeUnits,
+        schemeTotal,
+        freePcs,
+        grossTotal,
+        total: lineNet,
+        costTotal,
+      };
     });
 
-    res.json({ success: true, message: 'Invoice updated.', data: updated });
+    const totalAmount = lineItems.reduce((s, i) => s + parseFloat(i.total), 0).toFixed(2);
+    const balance = (parseFloat(totalAmount) - paid).toFixed(2);
+    const paymentStatus = paid <= 0 ? 'PENDING' : paid >= parseFloat(totalAmount) ? 'PAID' : 'PARTIAL';
+
+    const customer = await prisma.customer.findFirst({ where: { id: targetCustomerId, userId: req.user.id } });
+    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found.' });
+
+    // Atomic Reversal & Reapplication
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. REVERSE OLD EFFECTS
+      // Revert old stock deductions
+      for (const oldItem of invoice.items) {
+        if (oldItem.productId) {
+          const oldDeducted = parseFloat(oldItem.qty) + parseFloat(oldItem.schemeUnits || 0) + parseFloat(oldItem.freePcs || 0);
+          await tx.product.update({
+            where: { id: oldItem.productId },
+            data: { stockQty: { increment: oldDeducted } },
+          });
+        }
+      }
+      await tx.stockMovement.deleteMany({ where: { referenceId: invoice.id } });
+
+      // Revert old customer balance
+      await tx.customer.update({
+        where: { id: invoice.customerId },
+        data: { currentBalance: { decrement: parseFloat(invoice.balanceAmount) } },
+      });
+
+      // Delete old ledger entries for this invoice
+      await tx.ledgerTransaction.deleteMany({ where: { referenceId: invoice.id } });
+
+      // Delete old cash / bank entries
+      await tx.cashBookEntry.deleteMany({ where: { referenceId: invoice.id } });
+      await tx.bankBookEntry.deleteMany({ where: { referenceId: invoice.id } });
+      if (invoice.paymentMethod === 'BANK' && invoice.bankAccountId && parseFloat(invoice.paidAmount) > 0) {
+        await tx.bankAccount.update({
+          where: { id: invoice.bankAccountId },
+          data: { currentBalance: { decrement: parseFloat(invoice.paidAmount) } },
+        });
+      }
+
+      // Delete old items
+      await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
+
+      // 2. APPLY NEW EFFECTS
+      // Check stock for new catalog items
+      for (const item of lineItems) {
+        if (!item.productId) continue;
+        const freshProd = await tx.product.findUnique({ where: { id: item.productId } });
+        const reqQty = parseFloat(item.qty) + parseFloat(item.schemeUnits || 0) + parseFloat(item.freePcs || 0);
+        if (parseFloat(freshProd.stockQty) < reqQty) {
+          throw new Error(`Insufficient stock for "${freshProd.productName}". Available: ${freshProd.stockQty}, required: ${reqQty}.`);
+        }
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stockQty: { decrement: reqQty } },
+        });
+        await tx.stockMovement.create({
+          data: {
+            userId: req.user.id,
+            productId: item.productId,
+            movementType: 'SALE',
+            qty: -reqQty,
+            referenceId: invoice.id,
+            movementDate: txDate,
+          },
+        });
+      }
+
+      // Re-create items
+      await tx.invoiceItem.createMany({
+        data: lineItems.map((i) => ({
+          invoiceId: invoice.id,
+          productId: i.productId || null,
+          customName: i.customName || null,
+          qty: i.qty,
+          unitPrice: i.unitPrice,
+          pricingMode: i.pricingMode,
+          batchNo: i.batchNo,
+          packing: i.packing,
+          discount: i.discount,
+          discountAmt: i.discountAmt,
+          schemeUnits: i.schemeUnits,
+          schemeTotal: i.schemeTotal,
+          freePcs: i.freePcs,
+          grossTotal: i.grossTotal,
+          total: i.total,
+        })),
+      });
+
+      // Update customer balance (+ new balance)
+      await tx.customer.update({
+        where: { id: targetCustomerId },
+        data: { currentBalance: { increment: parseFloat(balance) } },
+      });
+
+      // Post new customer ledger transaction (debit for sale)
+      await tx.ledgerTransaction.create({
+        data: {
+          userId: req.user.id,
+          partyType: 'CUSTOMER',
+          partyId: targetCustomerId,
+          transactionDate: txDate,
+          description: `Invoice — ${invoice.invoiceNo} (Updated)`,
+          referenceType: 'INVOICE',
+          referenceId: invoice.id,
+          debit: parseFloat(totalAmount),
+          credit: 0,
+          runningBalance: 0,
+        },
+      });
+
+      // If payment was made
+      if (paid > 0) {
+        if (method === 'BANK' && targetBankAccountId) {
+          const lastBank = await tx.bankBookEntry.findFirst({
+            where: { userId: req.user.id, bankAccountId: targetBankAccountId },
+            orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+          });
+          const bRun = parseFloat(lastBank?.runningBalance ?? bankAccount.openingBalance);
+          await tx.bankBookEntry.create({
+            data: {
+              userId: req.user.id,
+              bankAccountId: targetBankAccountId,
+              transactionDate: txDate,
+              description: `Payment received — ${invoice.invoiceNo} (${customer.customerName})`,
+              deposit: paid,
+              withdrawal: 0,
+              runningBalance: bRun + paid,
+              referenceType: 'INVOICE',
+              referenceId: invoice.id,
+            },
+          });
+          await tx.bankAccount.update({
+            where: { id: targetBankAccountId },
+            data: { currentBalance: { increment: paid } },
+          });
+        } else {
+          const lastCash = await tx.cashBookEntry.findFirst({
+            where: { userId: req.user.id },
+            orderBy: { createdAt: 'desc' },
+          });
+          const cRun = parseFloat(lastCash?.runningBalance || 0);
+          const mcrNo = await getNextEntryNo(req.user.id, 'MCR');
+          await tx.cashBookEntry.create({
+            data: {
+              userId: req.user.id,
+              transactionDate: txDate,
+              description: `MCR# ${mcrNo}, Cash received from sale invoice# ${invoice.invoiceNo}`,
+              cashIn: paid,
+              cashOut: 0,
+              runningBalance: cRun + paid,
+              referenceType: 'INVOICE',
+              referenceId: invoice.id,
+              entryType: 'MCR',
+              entryNo: mcrNo,
+              partyName: customer.customerName.toUpperCase(),
+            },
+          });
+        }
+
+        // Ledger credit for payment
+        await tx.ledgerTransaction.create({
+          data: {
+            userId: req.user.id,
+            partyType: 'CUSTOMER',
+            partyId: targetCustomerId,
+            transactionDate: txDate,
+            description: `Payment (${method}) — ${invoice.invoiceNo}`,
+            referenceType: 'PAYMENT',
+            referenceId: invoice.id,
+            debit: 0,
+            credit: paid,
+            runningBalance: 0,
+          },
+        });
+      }
+
+      // 3. RECALCULATE RUNNING BALANCES FOR THIS CUSTOMER
+      const allCustomerTxs = await tx.ledgerTransaction.findMany({
+        where: { userId: req.user.id, partyType: 'CUSTOMER', partyId: targetCustomerId },
+        orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+      });
+      let runningBal = parseFloat(customer.openingBalance || 0);
+      for (const txEntry of allCustomerTxs) {
+        runningBal += parseFloat(txEntry.debit) - parseFloat(txEntry.credit);
+        await tx.ledgerTransaction.update({
+          where: { id: txEntry.id },
+          data: { runningBalance: runningBal },
+        });
+      }
+
+      // 4. UPDATE INVOICE RECORD
+      const updatedInvoice = await tx.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          customerId: targetCustomerId,
+          invoiceDate: txDate,
+          totalAmount,
+          paidAmount: paid,
+          balanceAmount: balance,
+          paymentStatus,
+          paymentMethod: method,
+          bankAccountId: method === 'BANK' ? targetBankAccountId : null,
+          invoiceType: (invoiceType || invoice.invoiceType || 'CREDIT').toUpperCase(),
+          narration: narration !== undefined ? (narration || null) : invoice.narration,
+          salesman: salesman !== undefined ? (salesman || null) : invoice.salesman,
+          notes: notes !== undefined ? (notes || null) : invoice.notes,
+        },
+        include: {
+          customer: true,
+          items: { include: { product: true } },
+          bankAccount: true,
+        },
+      });
+
+      return updatedInvoice;
+    }, { maxWait: 15000, timeout: 35000 });
+
+    res.json({
+      success: true,
+      message: `Invoice ${result.invoiceNo} successfully updated.`,
+      data: result,
+    });
   } catch (err) {
     next(err);
   }

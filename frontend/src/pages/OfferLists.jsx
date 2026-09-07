@@ -240,12 +240,47 @@ export default function OfferLists() {
       toast.error('List Number is required.');
       return;
     }
+
+    let itemsToSave = [...formItems];
+
+    // If user selected a product in the sub-form but forgot to click "+ Add to List", automatically include it
+    if (selectedProductId) {
+      if (!itemsToSave.some((i) => i.productId === selectedProductId)) {
+        const company = companies.find((c) => c.id === selectedCompanyId);
+        const product = products.find((p) => p.id === selectedProductId);
+
+        let label = '';
+        if (itemOfferType === 'PERCENTAGE') label = `${itemOfferValue}%`;
+        else if (itemOfferType === 'TP') label = 'TP';
+        else if (itemOfferType === 'NET') label = `${itemOfferValue} NET`;
+        else if (itemOfferType === 'BONUS') label = `${itemBuyQty}+${itemFreeQty}`;
+
+        itemsToSave.push({
+          companyId: selectedCompanyId,
+          companyName: company?.companyName || '—',
+          productId: selectedProductId,
+          productName: product?.productName || '—',
+          offerType: itemOfferType,
+          offerValue: itemOfferType === 'PERCENTAGE' || itemOfferType === 'NET' ? itemOfferValue : null,
+          bonusBuyQty: itemOfferType === 'BONUS' ? itemBuyQty : null,
+          bonusFreeQty: itemOfferType === 'BONUS' ? itemFreeQty : null,
+          remarks: itemRemarks.trim(),
+          offerLabel: label,
+        });
+      }
+    }
+
+    if (itemsToSave.length === 0) {
+      toast.error('Please add at least one product with an offer to the list before saving.');
+      return;
+    }
+
     saveMutation.mutate({
       listNumber: formListNumber.trim(),
       listDate: formListDate,
       isActive: formIsActive,
       remarks: formRemarks,
-      items: formItems.map((i) => ({
+      items: itemsToSave.map((i) => ({
         companyId: i.companyId,
         productId: i.productId,
         offerType: i.offerType,

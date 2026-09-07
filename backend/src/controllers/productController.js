@@ -136,6 +136,7 @@ async function create(req, res, next) {
     const {
       productName, category, unit, batchNo, expiryDate,
       purchasePrice, tradePrice, salePrice, stockQty, minStockAlert,
+      piecesPerPack, packing,
     } = req.body;
 
     const product = await prisma.product.create({
@@ -151,6 +152,8 @@ async function create(req, res, next) {
         salePrice,
         stockQty: stockQty || 0,
         minStockAlert: minStockAlert || 10,
+        piecesPerPack: piecesPerPack ? parseInt(piecesPerPack) : 1,
+        packing: packing || null,
       },
     });
 
@@ -172,6 +175,7 @@ async function update(req, res, next) {
     const {
       productName, category, unit, batchNo, expiryDate,
       purchasePrice, tradePrice, salePrice, minStockAlert,
+      piecesPerPack, packing,
     } = req.body;
 
     const product = await prisma.product.update({
@@ -182,6 +186,8 @@ async function update(req, res, next) {
         purchasePrice,
         tradePrice: tradePrice !== undefined && tradePrice !== '' ? tradePrice : (existing.tradePrice || purchasePrice),
         salePrice, minStockAlert,
+        piecesPerPack: piecesPerPack !== undefined ? parseInt(piecesPerPack) : existing.piecesPerPack,
+        packing: packing !== undefined ? packing : existing.packing,
       },
     });
 

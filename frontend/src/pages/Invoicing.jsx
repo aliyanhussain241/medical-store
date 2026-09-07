@@ -12,7 +12,7 @@ import { customersAPI, productsAPI, invoicesAPI, exportAPI, offerListsAPI, downl
 import { useAuth } from '../context/AuthContext';
 import useDebounce from '../utils/useDebounce';
 import toast from 'react-hot-toast';
-import { Search, Plus, Trash2, FileDown, Printer, Tag, Lock, Eye, X, CheckCircle, Landmark, Pencil } from 'lucide-react';
+import { Search, Plus, Trash2, FileDown, Printer, Tag, Lock, Eye, X, CheckCircle, Landmark, Pencil, Key } from 'lucide-react';
 
 function pkr(v) {
   return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
@@ -51,11 +51,15 @@ export default function Invoicing() {
   // Invoicing states
   const [customerId, setCustomerId] = useState('');
   const [salesman, setSalesman] = useState('');
-  const [defaultPricingMode, setDefaultPricingMode] = useState('TP'); // 'TP' | 'RETAIL'
+  const [defaultPricingMode, setDefaultPricingMode] = useState('RETAIL'); // Item #2: Default to RETAIL
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [invoiceType, setInvoiceType] = useState('CREDIT'); // 'CREDIT' | 'CASH'
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
   const [editingInvoiceNo, setEditingInvoiceNo] = useState(null);
+  const [isPastEdit, setIsPastEdit] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [passwordPromptModal, setPasswordPromptModal] = useState(null);
+  const [promptInputPassword, setPromptInputPassword] = useState('');
   const [items, setItems] = useState([]);
   const [paidAmount, setPaidAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('CASH'); // 'CASH' | 'BANK'
@@ -196,6 +200,37 @@ export default function Invoicing() {
     setItems((prev) => prev.filter((_, i) => i !== idx));
   }
 
+  // Item #12: Manual Product Entry on Invoicing
+  function addManualItem() {
+    setItems((prev) => [
+      ...prev,
+      {
+        productId: null,
+        isManual: true,
+        productName: '',
+        unit: 'Pcs',
+        batchNo: '',
+        availableQty: 999999,
+        qty: 1,
+        pricingMode: defaultPricingMode,
+        tradePrice: 0,
+        retailPrice: 0,
+        unitPrice: 0,
+        discount: 0,
+        schemeUnits: 0,
+        schemeTotal: 0,
+        freePcs: 0,
+        offer: null,
+      },
+    ]);
+    setTimeout(() => {
+      const inputs = document.querySelectorAll('.manual-item-input');
+      if (inputs.length > 0) {
+        inputs[inputs.length - 1]?.focus();
+      }
+    }, 60);
+  }
+
   // Line & grand total calculations
   const totalAmount = items.reduce((sum, item) => {
     const q = parseFloat(item.qty) || 0;
@@ -222,6 +257,8 @@ export default function Invoicing() {
   function cancelEdit() {
     setEditingInvoiceId(null);
     setEditingInvoiceNo(null);
+    setIsPastEdit(false);
+    setAdminPassword('');
     setItems([]);
     setPaidAmount('');
     setPaymentMethod('CASH');
@@ -231,7 +268,19 @@ export default function Invoicing() {
     setInvoiceType('CREDIT');
   }
 
-  function handleEditInvoice(inv) {
+  function handleEditInvoice(inv, password = '') {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const invDateStr = inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : '';
+    const isPast = invDateStr !== todayStr;
+
+    if (isPast && !password) {
+      setPromptInputPassword('');
+      setPasswordPromptModal(inv);
+      return;
+    }
+
+    setIsPastEdit(isPast);
+    setAdminPassword(password);
     setEditingInvoiceId(inv.id);
     setEditingInvoiceNo(inv.invoiceNo);
     setCustomerId(inv.customerId || '');
@@ -248,16 +297,18 @@ export default function Invoicing() {
       setItems(
         inv.items.map((it) => {
           const prod = it.product || {};
+          const isManual = !it.productId || !!it.customName;
           return {
-            productId: it.productId,
-            productName: prod.productName || it.productId,
+            productId: it.productId || null,
+            isManual,
+            productName: it.customName || prod.productName || 'Manual Item',
             unit: it.packing || prod.unit || 'Pack',
             batchNo: it.batchNo || prod.batchNo || '',
-            availableQty: (parseFloat(prod.stockQty) || 0) + (parseFloat(it.qty) || 0),
+            availableQty: isManual ? 999999 : ((parseFloat(prod.stockQty) || 0) + (parseFloat(it.qty) || 0)),
             tradePrice: parseFloat(prod.tradePrice || prod.purchasePrice || it.unitPrice || 0),
             retailPrice: parseFloat(prod.salePrice || it.unitPrice || 0),
             unitPrice: parseFloat(it.unitPrice || 0),
-            pricingMode: it.pricingMode || 'TP',
+            pricingMode: it.pricingMode || 'RETAIL',
             qty: it.qty,
             discount: it.discount || 0,
             schemeUnits: it.schemeUnits || 0,
@@ -267,7 +318,11 @@ export default function Invoicing() {
         })
       );
     }
-    toast(`Loaded invoice ${inv.invoiceNo} for same-day editing.`, { icon: '✏️' });
+    if (isPast) {
+      toast(`Loaded past invoice ${inv.invoiceNo} for editing (Authorized).`, { icon: '🔓' });
+    } else {
+      toast(`Loaded invoice ${inv.invoiceNo} for same-day editing.`, { icon: '✏️' });
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -326,10 +381,12 @@ export default function Invoicing() {
       return;
     }
     for (const item of items) {
-      const totalReq = parseFloat(item.qty || 0) + parseFloat(item.schemeUnits || 0) + parseFloat(item.freePcs || 0);
-      if (totalReq > item.availableQty) {
-        toast.error(`Quantity for "${item.productName}" exceeds available stock (${item.availableQty}).`);
-        return;
+      if (item.productId && !item.isManual) {
+        const totalReq = parseFloat(item.qty || 0) + parseFloat(item.schemeUnits || 0) + parseFloat(item.freePcs || 0);
+        if (totalReq > item.availableQty) {
+          toast.error(`Quantity for "${item.productName}" exceeds available stock (${item.availableQty}).`);
+          return;
+        }
       }
     }
 
@@ -348,14 +405,16 @@ export default function Invoicing() {
       narration: narration.trim() || undefined,
       salesman: salesman.trim() || undefined,
       notes: notes.trim() || undefined,
+      ...(isPastEdit && adminPassword ? { adminPassword } : {}),
       items: items.map((i) => {
         const gross = (parseFloat(i.qty) || 0) * (parseFloat(i.unitPrice) || 0);
         const discAmt = gross * ((parseFloat(i.discount) || 0) / 100);
         return {
-          productId: i.productId,
+          productId: i.productId || null,
+          customName: !i.productId || i.isManual ? (i.productName || 'Manual Item') : undefined,
           qty: parseFloat(i.qty),
           unitPrice: parseFloat(i.unitPrice),
-          pricingMode: i.pricingMode || 'TP',
+          pricingMode: i.pricingMode || 'RETAIL',
           batchNo: i.batchNo || undefined,
           packing: i.unit || undefined,
           discount: parseFloat(i.discount) || 0,
@@ -452,22 +511,92 @@ export default function Invoicing() {
           {/* Invoice meta & Customer Selection */}
           <div className="card">
             <div className="card-body">
-              {/* Invoice Type Toggle & Edit Mode Banner */}
+              {/* Editing Status Banner if active */}
+              {editingInvoiceId && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 12,
+                    background: isPastEdit ? '#fef3c7' : '#e0e7ff',
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    border: isPastEdit ? '1px solid #f59e0b' : '1px solid #6366f1',
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 700, color: isPastEdit ? '#92400e' : '#3730a3' }}>
+                    {isPastEdit ? '🔓 Editing Past Invoice' : '✏️ Editing Invoice'} #{editingInvoiceNo} ({fmtDate(invoiceDate)}) {isPastEdit ? '— Authorized' : '(Same-Day)'}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline"
+                    onClick={cancelEdit}
+                    style={{ padding: '2px 8px', fontSize: 11 }}
+                  >
+                    Cancel Edit
+                  </button>
+                </div>
+              )}
+
+              {/* STEP 1: Select Customer */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 0 }}>
+                    1. Select Customer *
+                  </label>
+                  {selectedCustomer && (
+                    <div style={{ fontSize: 12, display: 'flex', gap: 12 }}>
+                      <span>Code: <strong>{selectedCustomer.customerCode || '0'}</strong></span>
+                      <span>Area: <strong>{selectedCustomer.area || 'UNASSIGNED'}</strong></span>
+                      <span>
+                        Prv Bal:{' '}
+                        <strong style={{ color: prvBalance > 0 ? 'var(--alert)' : 'var(--paid)' }}>
+                          {pkr(prvBalance)} {prvBalance > 0 ? '(Due)' : '(Clear)'}
+                        </strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <select
+                  id="inv-customer"
+                  className="form-select"
+                  value={customerId}
+                  onChange={(e) => setCustomerId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      document.getElementById('inv-type-credit-btn')?.focus();
+                    }
+                  }}
+                >
+                  <option value="">— Select Customer —</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.customerCode ? `[${c.customerCode}] ` : ''}
+                      {c.customerName}
+                      {c.area ? ` — ${c.area}` : ''}
+                      {c.shopName ? ` (${c.shopName})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* STEP 2: Invoice Type (Cash / Credit) & Meta Details */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  marginBottom: 12,
-                  paddingBottom: 10,
-                  borderBottom: '1px solid var(--border)',
+                  paddingTop: 10,
+                  borderTop: '1px solid var(--border)',
                   flexWrap: 'wrap',
                   gap: 10,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text)' }}>
-                    Invoice Type:
+                    2. Payment Mode:
                   </span>
                   <div
                     style={{
@@ -485,6 +614,16 @@ export default function Invoicing() {
                         setInvoiceType('CREDIT');
                         setPaidAmount('');
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          document.getElementById('inv-salesman')?.focus();
+                        } else if (e.key === 'ArrowRight') {
+                          e.preventDefault();
+                          setInvoiceType('CASH');
+                          document.getElementById('inv-type-cash-btn')?.focus();
+                        }
+                      }}
                       style={{
                         padding: '4px 14px',
                         fontSize: 12,
@@ -496,7 +635,7 @@ export default function Invoicing() {
                         color: invoiceType === 'CREDIT' ? '#fff' : 'var(--text-secondary, #475569)',
                       }}
                     >
-                      Credit Invoice
+                      Credit Invoice (Default)
                     </button>
                     <button
                       type="button"
@@ -505,6 +644,16 @@ export default function Invoicing() {
                       onClick={() => {
                         setInvoiceType('CASH');
                         setPaidAmount(totalAmount > 0 ? totalAmount.toFixed(2) : '');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          document.getElementById('inv-salesman')?.focus();
+                        } else if (e.key === 'ArrowLeft') {
+                          e.preventDefault();
+                          setInvoiceType('CREDIT');
+                          document.getElementById('inv-type-credit-btn')?.focus();
+                        }
                       }}
                       style={{
                         padding: '4px 14px',
@@ -522,132 +671,56 @@ export default function Invoicing() {
                   </div>
                 </div>
 
-                {editingInvoiceId && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      background: '#fef3c7',
-                      padding: '4px 10px',
-                      borderRadius: 6,
-                      border: '1px solid #f59e0b',
-                    }}
-                  >
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#92400e' }}>
-                      Editing Invoice #{editingInvoiceNo} (Same-Day)
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline"
-                      onClick={cancelEdit}
-                      style={{ padding: '2px 8px', fontSize: 11 }}
-                    >
-                      Cancel Edit
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid-3" style={{ gap: 12 }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Customer *</label>
-                  <select
-                    id="inv-customer"
-                    className="form-select"
-                    value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        document.getElementById('inv-salesman')?.focus();
-                      }
-                    }}
-                  >
-                    <option value="">— Select Customer —</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.customerCode ? `[${c.customerCode}] ` : ''}
-                        {c.customerName}
-                        {c.area ? ` — ${c.area}` : ''}
-                        {c.shopName ? ` (${c.shopName})` : ''}
-                      </option>
-                    ))}
-                  </select>
-
-                  {selectedCustomer && (
-                    <div
-                      style={{
-                        marginTop: 6,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        fontSize: 12,
-                        padding: '4px 8px',
-                        background: prvBalance > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
-                        borderRadius: 4,
-                        border: prvBalance > 0 ? '1px solid rgba(239, 68, 68, 0.22)' : '1px solid rgba(16, 185, 129, 0.22)',
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <label className="form-label" style={{ fontSize: 11, marginBottom: 0 }}>Salesman:</label>
+                    <input
+                      id="inv-salesman"
+                      className="form-input"
+                      placeholder="e.g. Ali Khan"
+                      style={{ width: 120, padding: '4px 8px', fontSize: 12 }}
+                      value={salesman}
+                      onChange={(e) => setSalesman(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          document.getElementById('prod-search-inv')?.focus();
+                        }
                       }}
-                    >
-                      <span>
-                        <span style={{ color: 'var(--text-muted)' }}>Customer Prev Balance: </span>
-                        <strong style={{ color: prvBalance > 0 ? 'var(--alert)' : 'var(--paid)' }}>
-                          {pkr(prvBalance)} {prvBalance > 0 ? '(Due)' : '(Clear)'}
-                        </strong>
-                      </span>
-                      {selectedCustomer.area && (
-                        <span className="badge" style={{ fontSize: 10 }}>{selectedCustomer.area}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    />
+                  </div>
 
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Salesman (Optional)</label>
-                  <input
-                    id="inv-salesman"
-                    className="form-input"
-                    placeholder="e.g. Ali Khan"
-                    value={salesman}
-                    onChange={(e) => setSalesman(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        document.getElementById('prod-search-inv')?.focus();
-                      }
-                    }}
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Invoice Date</label>
-                  <input
-                    id="inv-date"
-                    type="date"
-                    className="form-input"
-                    value={invoiceDate}
-                    onChange={(e) => setInvoiceDate(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        document.getElementById('prod-search-inv')?.focus();
-                      }
-                    }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <label className="form-label" style={{ fontSize: 11, marginBottom: 0 }}>Date:</label>
+                    <input
+                      id="inv-date"
+                      type="date"
+                      className="form-input"
+                      style={{ width: 130, padding: '4px 6px', fontSize: 12 }}
+                      value={invoiceDate}
+                      onChange={(e) => setInvoiceDate(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          document.getElementById('prod-search-inv')?.focus();
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Default Pricing Mode Selector for POS Workflow */}
               <div
                 style={{
-                  marginTop: 12,
-                  paddingTop: 10,
+                  marginTop: 10,
+                  paddingTop: 8,
                   borderTop: '1px dashed var(--border)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   flexWrap: 'wrap',
-                  gap: 10,
+                  gap: 8,
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -663,6 +736,24 @@ export default function Invoicing() {
                       padding: 2,
                     }}
                   >
+                    <button
+                      type="button"
+                      id="default-mode-retail-btn"
+                      className={`btn-pill ${defaultPricingMode === 'RETAIL' ? 'active' : ''}`}
+                      onClick={() => setDefaultPricingMode('RETAIL')}
+                      style={{
+                        padding: '3px 10px',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        borderRadius: 4,
+                        border: 'none',
+                        cursor: 'pointer',
+                        background: defaultPricingMode === 'RETAIL' ? '#166534' : 'transparent',
+                        color: defaultPricingMode === 'RETAIL' ? '#fff' : 'var(--text-secondary, #475569)',
+                      }}
+                    >
+                      Retail (MRP) — Default
+                    </button>
                     <button
                       type="button"
                       id="default-mode-tp-btn"
@@ -681,51 +772,9 @@ export default function Invoicing() {
                     >
                       TP (Trade Price)
                     </button>
-                    <button
-                      type="button"
-                      id="default-mode-retail-btn"
-                      className={`btn-pill ${defaultPricingMode === 'RETAIL' ? 'active' : ''}`}
-                      onClick={() => setDefaultPricingMode('RETAIL')}
-                      style={{
-                        padding: '3px 10px',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        borderRadius: 4,
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: defaultPricingMode === 'RETAIL' ? 'var(--primary, #2563eb)' : 'transparent',
-                        color: defaultPricingMode === 'RETAIL' ? '#fff' : 'var(--text-secondary, #475569)',
-                      }}
-                    >
-                      Retail (MRP)
-                    </button>
                   </div>
-                  <span className="text-muted text-xs">New lines will inherit this mode</span>
+                  <span className="text-muted text-xs">New line items will default to Retail</span>
                 </div>
-
-                {selectedCustomer && (
-                  <div style={{ fontSize: 12, display: 'flex', gap: 14 }}>
-                    <span>
-                      Code: <strong>{selectedCustomer.customerCode || '0'}</strong>
-                    </span>
-                    <span>
-                      Area: <strong>{selectedCustomer.area || 'UNASSIGNED'}</strong>
-                    </span>
-                    <span>
-                      Prv Bal:{' '}
-                      <strong
-                        style={{
-                          color:
-                            parseFloat(selectedCustomer.currentBalance) > 0
-                              ? 'var(--alert)'
-                              : 'var(--paid)',
-                        }}
-                      >
-                        {pkr(selectedCustomer.currentBalance)}
-                      </strong>
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -733,7 +782,19 @@ export default function Invoicing() {
           {/* Product search */}
           <div className="card">
             <div className="card-header flex justify-between items-center">
-              <span>Add Products</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontWeight: 700 }}>3. Add Products</span>
+                <button
+                  type="button"
+                  id="add-manual-item-btn"
+                  className="btn btn-outline btn-sm"
+                  onClick={addManualItem}
+                  style={{ padding: '2px 8px', fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 4, color: '#2563eb' }}
+                  title="Add a custom/one-off product not in catalog"
+                >
+                  <Plus size={12} /> + Manual Item
+                </button>
+              </div>
               <span
                 style={{
                   fontSize: 10.5,
@@ -947,38 +1008,72 @@ export default function Invoicing() {
 
                       return (
                         <tr
-                          key={item.productId}
+                          key={item.productId || `manual-${idx}`}
                           style={{
                             background:
-                              qty > item.availableQty ? '#FFF9F9' : undefined,
+                              !item.isManual && qty > item.availableQty ? '#FFF9F9' : undefined,
                           }}
                         >
                           <td style={{ fontWeight: 500 }}>
-                            <div style={{ fontWeight: 600 }}>{item.productName}</div>
-                            <div
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                flexWrap: 'wrap',
-                                marginTop: 2,
-                                fontSize: 11,
-                              }}
-                            >
-                              <span className="text-muted">{item.unit}</span>
-                              {item.batchNo && (
-                                <span className="text-muted">Batch: {item.batchNo}</span>
-                              )}
-                              <span className="text-muted">Avail: {item.availableQty}</span>
-                              {item.offer && (
-                                <span
-                                  className={`badge ${getOfferBadgeClass(item.offer.offerType)}`}
-                                  style={{ fontSize: 9, padding: '1px 5px', textTransform: 'none' }}
+                            {item.isManual || !item.productId ? (
+                              <div>
+                                <input
+                                  id={`manual-item-name-${idx}`}
+                                  type="text"
+                                  className="form-input manual-item-input"
+                                  style={{ padding: '3px 6px', fontSize: 12, fontWeight: 600, width: '100%', marginBottom: 3 }}
+                                  placeholder="Enter custom item name..."
+                                  value={item.productName}
+                                  onChange={(e) => updateItem(idx, 'productName', e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const qtyEl = document.getElementById(`item-qty-${idx}`);
+                                      if (qtyEl) { qtyEl.focus(); qtyEl.select(); }
+                                    }
+                                  }}
+                                />
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                  <span className="badge" style={{ fontSize: 9, padding: '1px 5px', background: '#e0e7ff', color: '#3730a3' }}>Manual Item</span>
+                                  <input
+                                    type="text"
+                                    className="form-input"
+                                    style={{ width: 60, padding: '1px 4px', fontSize: 10 }}
+                                    placeholder="Unit (Pcs)"
+                                    value={item.unit}
+                                    onChange={(e) => updateItem(idx, 'unit', e.target.value)}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div style={{ fontWeight: 600 }}>{item.productName}</div>
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    flexWrap: 'wrap',
+                                    marginTop: 2,
+                                    fontSize: 11,
+                                  }}
                                 >
-                                  {item.offer.offerLabel}
-                                </span>
-                              )}
-                            </div>
+                                  <span className="text-muted">{item.unit}</span>
+                                  {item.batchNo && (
+                                    <span className="text-muted">Batch: {item.batchNo}</span>
+                                  )}
+                                  <span className="text-muted">Avail: {item.availableQty}</span>
+                                  {item.offer && (
+                                    <span
+                                      className={`badge ${getOfferBadgeClass(item.offer.offerType)}`}
+                                      style={{ fontSize: 9, padding: '1px 5px', textTransform: 'none' }}
+                                    >
+                                      {item.offer.offerLabel}
+                                    </span>
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </td>
 
                           {/* Pricing Mode Selector: TP | Retail | Net */}
@@ -1007,8 +1102,8 @@ export default function Invoicing() {
                               value={item.pricingMode}
                               onChange={(e) => handleModeChange(idx, e.target.value)}
                             >
-                              <option value="TP">TP (Trade)</option>
                               <option value="RETAIL">Retail (MRP)</option>
+                              <option value="TP">TP (Trade)</option>
                               <option value="NET">Net (Custom)</option>
                             </select>
                           </td>
@@ -1027,7 +1122,7 @@ export default function Invoicing() {
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault();
-                                  if (item.pricingMode === 'NET') {
+                                  if (item.isManual || item.pricingMode === 'NET') {
                                     const priceEl = document.getElementById(`item-price-${idx}`);
                                     if (priceEl) { priceEl.focus(); priceEl.select(); return; }
                                   }
@@ -1043,7 +1138,7 @@ export default function Invoicing() {
                             />
                           </td>
 
-                          {/* Unit Price — LOCKED/READONLY in Retail & TP, EDITABLE in Net */}
+                          {/* Unit Price — LOCKED in Retail & TP for catalog items, EDITABLE in Net or Manual */}
                           <td className="num">
                             <div
                               style={{
@@ -1053,9 +1148,9 @@ export default function Invoicing() {
                                 gap: 4,
                               }}
                             >
-                              {item.pricingMode === 'RETAIL' && (
+                              {!item.isManual && item.pricingMode === 'RETAIL' && (
                                 <span
-                                  title="Retail price is locked during Invoicing. Use Net mode to enter a custom rate."
+                                  title="Retail price is locked for catalog products. Use Net mode or manual item for custom rates."
                                   style={{
                                     display: 'inline-flex',
                                     alignItems: 'center',
@@ -1076,20 +1171,22 @@ export default function Invoicing() {
                                   padding: '4px 6px',
                                   textAlign: 'right',
                                   background:
-                                    item.pricingMode === 'RETAIL'
+                                    item.isManual
+                                      ? '#ffffff'
+                                      : item.pricingMode === 'RETAIL'
                                       ? '#f1f5f9'
                                       : item.pricingMode === 'TP'
                                       ? '#f8fafc'
                                       : '#ffffff',
-                                  cursor: item.pricingMode === 'RETAIL' ? 'not-allowed' : 'text',
+                                  cursor: !item.isManual && item.pricingMode === 'RETAIL' ? 'not-allowed' : 'text',
                                   borderColor:
-                                    item.pricingMode === 'NET'
+                                    item.isManual || item.pricingMode === 'NET'
                                       ? 'var(--primary, #2563eb)'
                                       : undefined,
-                                  fontWeight: item.pricingMode === 'NET' ? 700 : 500,
+                                  fontWeight: item.isManual || item.pricingMode === 'NET' ? 700 : 500,
                                 }}
                                 value={item.unitPrice}
-                                readOnly={item.pricingMode === 'RETAIL' || item.pricingMode === 'TP'}
+                                readOnly={!item.isManual && (item.pricingMode === 'RETAIL' || item.pricingMode === 'TP')}
                                 onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
                                 onKeyDown={(e) => {
                                   if (e.key === 'Enter') {
@@ -1104,7 +1201,9 @@ export default function Invoicing() {
                                   }
                                 }}
                                 title={
-                                  item.pricingMode === 'RETAIL'
+                                  item.isManual
+                                    ? 'Custom item rate.'
+                                    : item.pricingMode === 'RETAIL'
                                     ? 'Retail price is locked during invoicing. Use Net mode for custom rates.'
                                     : item.pricingMode === 'TP'
                                     ? 'Trade Price pulled from product master.'
@@ -1116,14 +1215,16 @@ export default function Invoicing() {
                                   fontSize: 11,
                                   fontWeight: 700,
                                   color:
-                                    item.pricingMode === 'TP'
+                                    item.isManual
+                                      ? '#4f46e5'
+                                      : item.pricingMode === 'TP'
                                       ? '#2563eb'
                                       : item.pricingMode === 'RETAIL'
                                       ? '#166534'
                                       : '#d97706',
                                 }}
                               >
-                                {item.pricingMode === 'TP' ? 'T' : item.pricingMode === 'RETAIL' ? 'R' : 'N'}
+                                {item.isManual ? 'M' : item.pricingMode === 'TP' ? 'T' : item.pricingMode === 'RETAIL' ? 'R' : 'N'}
                               </span>
                             </div>
                           </td>
@@ -1491,6 +1592,10 @@ export default function Invoicing() {
               setPreviewModalOpen(true);
             }}
             onEditInvoice={handleEditInvoice}
+            onRequestPasswordEdit={(inv) => {
+              setPromptInputPassword('');
+              setPasswordPromptModal(inv);
+            }}
           />
         </div>
       </div>
@@ -1842,17 +1947,97 @@ export default function Invoicing() {
           </div>
         </div>
       )}
+
+      {/* ── Past Invoice Password Prompt Modal ── */}
+      {passwordPromptModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setPasswordPromptModal(null)}
+          style={{ zIndex: 1100 }}
+        >
+          <div
+            className="modal"
+            style={{ maxWidth: 420, width: '90%' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Lock size={16} style={{ color: '#d97706' }} />
+                <span style={{ fontWeight: 700 }}>Authorize Past Invoice Edit</span>
+              </div>
+              <button className="btn-icon" onClick={() => setPasswordPromptModal(null)}>
+                <X size={14} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
+                Invoice <strong>{passwordPromptModal.invoiceNo}</strong> is dated{' '}
+                <strong>{fmtDate(passwordPromptModal.invoiceDate)}</strong>. Please enter the Store Owner / Admin password to authorize editing this past invoice.
+              </p>
+              <div className="form-group">
+                <label className="form-label">Admin / Owner Password *</label>
+                <input
+                  id="admin-edit-pass-input"
+                  type="password"
+                  className="form-input"
+                  placeholder="Enter store owner password..."
+                  autoFocus
+                  value={promptInputPassword}
+                  onChange={(e) => setPromptInputPassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (!promptInputPassword.trim()) {
+                        toast.error('Please enter the password.');
+                        return;
+                      }
+                      const targetInv = passwordPromptModal;
+                      const pwd = promptInputPassword.trim();
+                      setPasswordPromptModal(null);
+                      handleEditInvoice(targetInv, pwd);
+                    }
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 11, color: '#64748b', background: '#f8fafc', padding: 8, borderRadius: 4, border: '1px solid #e2e8f0' }}>
+                ℹ️ Running balances for this customer will be automatically recalculated across all subsequent transactions upon saving.
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-outline" onClick={() => setPasswordPromptModal(null)}>Cancel</button>
+              <button
+                id="confirm-admin-pass-btn"
+                className="btn btn-primary"
+                onClick={() => {
+                  if (!promptInputPassword.trim()) {
+                    toast.error('Please enter the password.');
+                    return;
+                  }
+                  const targetInv = passwordPromptModal;
+                  const pwd = promptInputPassword.trim();
+                  setPasswordPromptModal(null);
+                  handleEditInvoice(targetInv, pwd);
+                }}
+              >
+                Authorize &amp; Edit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function RecentInvoices({ onSelectInvoice, onEditInvoice }) {
-  const { data } = useQuery({
-    queryKey: ['invoices-recent'],
-    queryFn: () => invoicesAPI.list({ limit: 8 }).then((r) => r.data),
+function RecentInvoices({ onSelectInvoice, onEditInvoice, onRequestPasswordEdit }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['invoices-recent', debouncedSearch],
+    queryFn: () => invoicesAPI.list({ search: debouncedSearch.trim() || undefined, limit: debouncedSearch.trim() ? 25 : 8 }).then((r) => r.data),
   });
   const invoices = data?.data || [];
-  if (!invoices.length) return null;
   function pkr(v) {
     return `Rs ${parseFloat(v || 0).toFixed(0)}`;
   }
@@ -1860,68 +2045,118 @@ function RecentInvoices({ onSelectInvoice, onEditInvoice }) {
 
   return (
     <div className="card" style={{ marginTop: 12 }}>
-      <div className="card-header" style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>Recent Invoices</span>
-        <span className="text-muted text-xs">Same-day editable</span>
+      <div className="card-header" style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>Past Invoices</span>
+          <span className="text-muted text-xs">Search &amp; Edit</span>
+        </div>
+        <div className="search-input-wrap" style={{ maxWidth: '100%', marginBottom: 0 }}>
+          <Search size={13} />
+          <input
+            id="search-recent-invoices-input"
+            className="form-input"
+            style={{ fontSize: 12, padding: '5px 8px 5px 28px' }}
+            placeholder="Search by Invoice # (e.g. INV-001) or customer..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
       </div>
-      {invoices.map((inv) => {
-        const invDateStr = inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : '';
-        const isSameDay = invDateStr === todayStr;
 
-        return (
-          <div
-            key={inv.id}
-            style={{
-              padding: '8px 12px',
-              borderBottom: '1px solid var(--border)',
-              fontSize: 12,
-              cursor: 'pointer',
-            }}
-            onClick={() => onSelectInvoice && onSelectInvoice(inv)}
-            title="Click to view/print invoice"
-          >
-            <div className="flex justify-between items-center">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontWeight: 600, color: 'var(--primary, #2563eb)' }}>{inv.invoiceNo}</span>
-                {inv.invoiceType && (
-                  <span
-                    className="badge"
-                    style={{
-                      fontSize: 9,
-                      padding: '1px 5px',
-                      background: inv.invoiceType === 'CASH' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(37, 99, 235, 0.1)',
-                      color: inv.invoiceType === 'CASH' ? '#10b981' : '#2563eb',
-                    }}
-                  >
-                    {inv.invoiceType}
+      {isLoading ? (
+        <div style={{ padding: 16, textAlign: 'center' }}><div className="spinner" style={{ margin: 'auto' }} /></div>
+      ) : invoices.length === 0 ? (
+        <div style={{ padding: 14, textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+          {searchTerm ? 'No matching invoices found.' : 'No past invoices.'}
+        </div>
+      ) : (
+        invoices.map((inv) => {
+          const invDateStr = inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : '';
+          const isSameDay = invDateStr === todayStr;
+
+          return (
+            <div
+              key={inv.id}
+              style={{
+                padding: '8px 12px',
+                borderBottom: '1px solid var(--border)',
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+              onClick={() => onSelectInvoice && onSelectInvoice(inv)}
+              title="Click to view/print invoice"
+            >
+              <div className="flex justify-between items-center">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontWeight: 600, color: 'var(--primary, #2563eb)' }}>{inv.invoiceNo}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                    ({invDateStr ? fmtDate(invDateStr) : ''})
                   </span>
-                )}
+                  {inv.invoiceType && (
+                    <span
+                      className="badge"
+                      style={{
+                        fontSize: 9,
+                        padding: '1px 5px',
+                        background: inv.invoiceType === 'CASH' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(37, 99, 235, 0.1)',
+                        color: inv.invoiceType === 'CASH' ? '#10b981' : '#2563eb',
+                      }}
+                    >
+                      {inv.invoiceType}
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span className={`badge badge-${inv.paymentStatus.toLowerCase()}`}>{inv.paymentStatus}</span>
+                  {isSameDay ? (
+                    onEditInvoice && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        style={{ padding: '1px 6px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}
+                        title="Edit invoice (Same-day)"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditInvoice(inv);
+                        }}
+                      >
+                        <Pencil size={11} /> Edit
+                      </button>
+                    )
+                  ) : (
+                    onRequestPasswordEdit && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline"
+                        style={{
+                          padding: '1px 6px',
+                          fontSize: 11,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 3,
+                          borderColor: '#f59e0b',
+                          color: '#b45309',
+                        }}
+                        title="Password required to edit past-dated invoice"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRequestPasswordEdit(inv);
+                        }}
+                      >
+                        <Lock size={11} /> Edit
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span className={`badge badge-${inv.paymentStatus.toLowerCase()}`}>{inv.paymentStatus}</span>
-                {isSameDay && onEditInvoice && (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-outline"
-                    style={{ padding: '1px 6px', fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}
-                    title="Edit invoice (Same-day only)"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEditInvoice(inv);
-                    }}
-                  >
-                    <Pencil size={11} /> Edit
-                  </button>
-                )}
+              <div className="flex justify-between text-muted" style={{ marginTop: 2 }}>
+                <span>{inv.customer?.customerName || inv.customer?.shopName}</span>
+                <span className="tabular font-semibold">{pkr(inv.totalAmount)}</span>
               </div>
             </div>
-            <div className="flex justify-between text-muted" style={{ marginTop: 2 }}>
-              <span>{inv.customer?.customerName}</span>
-              <span className="tabular font-semibold">{pkr(inv.totalAmount)}</span>
-            </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 }

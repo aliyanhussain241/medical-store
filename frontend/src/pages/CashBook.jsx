@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cashBookAPI, exportAPI, downloadBlob, accountHeadsAPI } from '../api/services';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
-import { FileDown, Plus, X } from 'lucide-react';
+import { FileDown, Plus, X, Receipt } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
@@ -88,7 +88,45 @@ export default function CashBook() {
       <div className="page-header">
         <h2 className="page-title">Cash Book</h2>
         <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
-          <button className="btn btn-primary btn-sm" onClick={() => setModal(true)}><Plus size={13} /> Add Entry</button>
+          <button
+            id="record-expense-btn"
+            className="btn btn-sm"
+            style={{
+              background: '#dc2626',
+              color: '#ffffff',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
+            }}
+            onClick={() => {
+              setForm({
+                transactionDate: new Date().toISOString().split('T')[0],
+                description: '',
+                partyName: '',
+                cashIn: '',
+                cashOut: '',
+                category: 'EXPENSE',
+                accountHeadId: accountHeads.find((h) => h.category === 'EXPENSE')?.id || '',
+              });
+              setModal(true);
+            }}
+          >
+            <Receipt size={14} /> + Record Expense
+          </button>
+          <button className="btn btn-primary btn-sm" onClick={() => {
+            setForm({
+              transactionDate: new Date().toISOString().split('T')[0],
+              description: '',
+              partyName: '',
+              cashIn: '',
+              cashOut: '',
+              category: '',
+              accountHeadId: '',
+            });
+            setModal(true);
+          }}><Plus size={13} /> Add Entry</button>
           <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')}><FileDown size={13} /> PDF</button>
           <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')}><FileDown size={13} /> Excel</button>
         </div>
@@ -216,7 +254,7 @@ export default function CashBook() {
             onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.description) saveMutation.mutate(form); })}
           >
             <div className="modal-header">
-              <span>Add Cash Book Entry</span>
+              <span>{form.category === 'EXPENSE' ? '💸 Record Cash Expense' : 'Add Cash Book Entry'}</span>
               <button className="btn-icon" onClick={() => setModal(false)}><X size={14} /></button>
             </div>
             <div className="modal-body">
