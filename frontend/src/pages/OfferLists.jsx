@@ -382,7 +382,7 @@ export default function OfferLists() {
                 <th style={{ width: 90 }} className="num">Items</th>
                 <th style={{ width: 110 }}>Status</th>
                 <th>Remarks</th>
-                <th style={{ width: 180 }} className="num">Actions</th>
+                <th style={{ minWidth: 260, width: 260 }} className="num">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -431,11 +431,10 @@ export default function OfferLists() {
                   <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>
                     {l.remarks || '—'}
                   </td>
-                  <td className="num">
-                    <div className="flex gap-4" style={{ justifyContent: 'flex-end' }}>
+                  <td className="num" style={{ whiteSpace: 'nowrap' }}>
+                    <div className="table-actions-group">
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ padding: '4px 8px' }}
                         title="View / Print"
                         onClick={() => openViewModal(l.id)}
                       >
@@ -443,7 +442,6 @@ export default function OfferLists() {
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ padding: '4px 8px' }}
                         title="Edit List"
                         onClick={() => openCreateModal(l)}
                       >
@@ -451,7 +449,6 @@ export default function OfferLists() {
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ padding: '4px 8px' }}
                         title="Download PDF"
                         onClick={() => exportDoc(l.id, 'pdf', l.listNumber)}
                       >
@@ -459,7 +456,6 @@ export default function OfferLists() {
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ padding: '4px 8px' }}
                         title="Download Excel"
                         onClick={() => exportDoc(l.id, 'excel', l.listNumber)}
                       >
@@ -467,7 +463,7 @@ export default function OfferLists() {
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ padding: '4px 8px', color: 'var(--alert)', borderColor: '#FCA5A5' }}
+                        style={{ color: '#DC2626', borderColor: '#FECACA' }}
                         title="Delete List"
                         onClick={() => {
                           if (window.confirm(`Delete offer list ${l.listNumber}?`)) {
