@@ -780,6 +780,7 @@ export default function Invoicing() {
                       id="default-mode-retail-btn"
                       className={`btn-pill ${defaultPricingMode === 'RETAIL' ? 'active' : ''}`}
                       onClick={() => setDefaultPricingMode('RETAIL')}
+                      title="Retail (MRP) — Default"
                       style={{
                         padding: '3px 10px',
                         fontSize: 12,
@@ -791,13 +792,14 @@ export default function Invoicing() {
                         color: defaultPricingMode === 'RETAIL' ? '#fff' : 'var(--text-secondary, #475569)',
                       }}
                     >
-                      Retail (MRP) — Default
+                      R
                     </button>
                     <button
                       type="button"
                       id="default-mode-tp-btn"
                       className={`btn-pill ${defaultPricingMode === 'TP' ? 'active' : ''}`}
                       onClick={() => setDefaultPricingMode('TP')}
+                      title="TP (Trade Price)"
                       style={{
                         padding: '3px 10px',
                         fontSize: 12,
@@ -809,7 +811,7 @@ export default function Invoicing() {
                         color: defaultPricingMode === 'TP' ? '#fff' : 'var(--text-secondary, #475569)',
                       }}
                     >
-                      TP (Trade Price)
+                      T
                     </button>
                   </div>
                   <span className="text-muted text-xs">New line items will default to Retail</span>
@@ -1112,10 +1114,11 @@ export default function Invoicing() {
                               id={`item-mode-${idx}`}
                               className="form-select"
                               style={{
-                                padding: '3px 6px',
+                                padding: '3px 4px',
                                 fontSize: 11,
-                                fontWeight: 600,
-                                width: 95,
+                                fontWeight: 700,
+                                width: 46,
+                                textAlign: 'center',
                                 color:
                                   item.pricingMode === 'TP'
                                     ? '#1e40af'
@@ -1132,9 +1135,9 @@ export default function Invoicing() {
                               value={item.pricingMode}
                               onChange={(e) => handleModeChange(idx, e.target.value)}
                             >
-                              <option value="RETAIL">Retail (MRP)</option>
-                              <option value="TP">TP (Trade)</option>
-                              <option value="NET">Net (Custom)</option>
+                              <option value="RETAIL" title="Retail (MRP)">R</option>
+                              <option value="TP" title="TP (Trade Price)">T</option>
+                              <option value="NET" title="Net (Custom)">N</option>
                             </select>
                           </td>
 
@@ -1493,9 +1496,9 @@ export default function Invoicing() {
                             value={item.pricingMode}
                             onChange={(e) => handleModeChange(idx, e.target.value)}
                           >
-                            <option value="RETAIL">Retail (MRP)</option>
-                            <option value="TP">TP (Trade)</option>
-                            <option value="NET">Net (Custom)</option>
+                            <option value="RETAIL" title="Retail (MRP)">R — Retail (MRP)</option>
+                            <option value="TP" title="TP (Trade Price)">T — Trade Price</option>
+                            <option value="NET" title="Net (Custom)">N — Net (Custom)</option>
                           </select>
                         </div>
                       </div>
