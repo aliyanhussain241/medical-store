@@ -380,7 +380,8 @@ export default function Purchasing() {
 
             <div className="card">
               <div className="card-header">Line Items <span className="text-muted text-sm">{items.length}</span></div>
-              <div className="data-table-wrap" style={{ border: 'none' }}>
+              {/* Desktop table — hidden on mobile, replaced by card list below */}
+              <div className="data-table-wrap po-desktop-table" style={{ border: 'none' }}>
                 <table className="data-table">
                   <thead>
                     <tr>
@@ -507,6 +508,128 @@ export default function Purchasing() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile card list — shown at ≤640px, hidden on desktop */}
+              {items.length > 0 && (
+                <div className="po-mobile-items" style={{ padding: '0 2px 8px' }}>
+                  {items.map((item, idx) => {
+                    const lineTotal = calcLine(item.qty, item.unitPrice, item.discount);
+                    return (
+                      <div
+                        key={item.productId}
+                        style={{
+                          padding: '12px 14px',
+                          borderBottom: idx < items.length - 1 ? '1px solid var(--border-light)' : 'none',
+                          background: idx % 2 === 1 ? '#fafcfa' : '#fff',
+                        }}
+                      >
+                        {/* Product name + delete */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)', lineHeight: 1.3 }}>
+                              {item.productName}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                              Unit: {item.unit}{item.packing ? ` • Pack: ${item.packing}` : ''}{item.piecesPerPack > 1 ? ` • ${item.piecesPerPack} pcs/pack` : ''}
+                            </div>
+                          </div>
+                          <button
+                            className="btn-icon"
+                            onClick={() => removeItem(idx)}
+                            style={{ color: 'var(--alert)', flexShrink: 0, marginLeft: 8 }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+
+                        {/* Purchase Unit toggle */}
+                        <div style={{ marginBottom: 10 }}>
+                          <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Purchase Unit</label>
+                          <select
+                            className="form-select"
+                            style={{ height: 36, fontSize: 12, fontWeight: 600 }}
+                            value={item.subUnit || 'PACK'}
+                            onChange={(e) => updateItem(idx, 'subUnit', e.target.value)}
+                          >
+                            <option value="PACK">Full Pack ({item.unit})</option>
+                            <option value="PIECE">Pieces / Caps (Sub-Unit)</option>
+                          </select>
+                        </div>
+
+                        {/* Row: Qty/Pieces | Price | Disc% */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                          <div>
+                            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>
+                              {item.subUnit === 'PIECE' ? 'Pieces' : 'Qty (Packs)'}
+                            </label>
+                            {item.subUnit === 'PIECE' ? (
+                              <div>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  className="form-input tabular"
+                                  style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}
+                                  placeholder="pcs"
+                                  value={item.piecesQty || ''}
+                                  onChange={(e) => updateItem(idx, 'piecesQty', e.target.value)}
+                                />
+                                <div style={{ fontSize: 10, color: '#2563eb', fontWeight: 600, marginTop: 2, textAlign: 'center' }}>= {item.qty || 0} pks</div>
+                              </div>
+                            ) : (
+                              <input
+                                type="number"
+                                min="0.001"
+                                step="0.001"
+                                className="form-input tabular"
+                                style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 700 }}
+                                value={item.qty}
+                                onChange={(e) => updateItem(idx, 'qty', e.target.value)}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Pack Price</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              className="form-input tabular"
+                              style={{ padding: '6px 8px', textAlign: 'right' }}
+                              value={item.unitPrice}
+                              onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 4 }}>Disc %</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.5"
+                              className="form-input"
+                              style={{ padding: '6px 8px', textAlign: 'right' }}
+                              value={item.discount}
+                              onChange={(e) => updateItem(idx, 'discount', e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Line total */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>Line Total:</span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{pkr(lineTotal)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {items.length === 0 && (
+                <div className="po-mobile-items" style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: 13 }}>
+                  Search and add products above
+                </div>
+              )}
             </div>
           </div>
 
@@ -613,7 +736,7 @@ export default function Purchasing() {
                       <td>{statusBadge(p.paymentStatus)}</td>
                       <td>
                         {p.paymentStatus !== 'PAID' && (
-                          <button className="btn btn-sm btn-outline" onClick={() => setPayModal(p)}><DollarSign size={12} /> Pay</button>
+                          <button className="btn btn-sm btn-outline" onClick={() => setPayModal(p)}><DollarSign size={12} /> <span className="lbl">Pay</span></button>
                         )}
                       </td>
                     </tr>

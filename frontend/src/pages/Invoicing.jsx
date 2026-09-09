@@ -983,8 +983,8 @@ export default function Invoicing() {
 
             {/* Desktop table */}
             <div
-              className="data-table-wrap"
-              style={{ border: 'none', display: 'var(--inv-table-display, block)' }}
+              className="data-table-wrap inv-desktop-table"
+              style={{ border: 'none' }}
             >
               <table className="data-table">
                 <thead>

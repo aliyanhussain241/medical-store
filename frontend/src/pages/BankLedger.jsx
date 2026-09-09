@@ -52,17 +52,17 @@ export default function BankLedger() {
     <div>
       <div className="page-header">
         <h2 className="page-title">Bank Ledger</h2>
-        <div className="flex gap-8">
+        <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
           {bankAccountId && (
             <>
               <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')}>
-                <FileDown size={13} /> Export PDF
+                <FileDown size={13} /> <span className="lbl">Export</span> PDF
               </button>
               <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')}>
-                <FileDown size={13} /> Export Excel
+                <FileDown size={13} /> <span className="lbl">Export</span> Excel
               </button>
               <button className="btn btn-primary btn-sm" onClick={() => setManualModal(true)}>
-                <Plus size={13} /> Manual Entry
+                <Plus size={13} /> <span className="lbl">Manual</span> Entry
               </button>
             </>
           )}

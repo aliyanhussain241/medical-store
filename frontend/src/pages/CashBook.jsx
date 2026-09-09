@@ -113,7 +113,7 @@ export default function CashBook() {
               setModal(true);
             }}
           >
-            <Receipt size={14} /> + Record Expense
+            <Receipt size={14} /> <span className="lbl">+ Record</span> Expense
           </button>
           <button className="btn btn-primary btn-sm" onClick={() => {
             setForm({
@@ -126,7 +126,7 @@ export default function CashBook() {
               accountHeadId: '',
             });
             setModal(true);
-          }}><Plus size={13} /> Add Entry</button>
+          }}><Plus size={13} /> <span className="lbl">Add</span> Entry</button>
           <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')}><FileDown size={13} /> PDF</button>
           <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')}><FileDown size={13} /> Excel</button>
         </div>

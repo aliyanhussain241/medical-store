@@ -438,7 +438,7 @@ export default function OfferLists() {
                         title="View / Print"
                         onClick={() => openViewModal(l.id)}
                       >
-                        <Eye size={13} /> View
+                        <Eye size={13} /> <span className="lbl">View</span>
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
@@ -452,14 +452,14 @@ export default function OfferLists() {
                         title="Download PDF"
                         onClick={() => exportDoc(l.id, 'pdf', l.listNumber)}
                       >
-                        <FileDown size={13} /> PDF
+                        <FileDown size={13} /> <span className="lbl">PDF</span>
                       </button>
                       <button
                         className="btn btn-outline btn-sm"
                         title="Download Excel"
                         onClick={() => exportDoc(l.id, 'excel', l.listNumber)}
                       >
-                        <FileDown size={13} /> XLS
+                        <FileDown size={13} /> <span className="lbl">XLS</span>
                       </button>
                       <button
                         className="btn btn-outline btn-sm"

@@ -69,7 +69,13 @@ html, body, #root {
 .app-layout {
   display: flex;
   height: 100vh;
+  /* iOS Safari: prevent page from being taller than the visible viewport */
+  height: -webkit-fill-available;
   overflow: hidden;
+}
+/* Polyfill for iOS min-height 100vh bug */
+html {
+  height: -webkit-fill-available;
 }
 
 /* ── Sidebar ─────────────────────────────────────────────────── */
@@ -706,6 +712,14 @@ table td input.form-input.item-qty-input {
 .item-qty-input::-webkit-outer-spin-button {
   opacity: 0.5;
 }
+/* Firefox: hide number spinners by default (they consume too much space in compact tables) */
+table td input[type="number"] {
+  -moz-appearance: textfield;
+}
+table td input[type="number"]::-webkit-outer-spin-button,
+table td input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+}
 
 .form-section-title {
   font-size: 12px;
@@ -820,12 +834,16 @@ table td input.form-input.item-qty-input {
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
+  /* Firefox: needs -webkit prefix fallback for backdrop-filter */
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  /* Safe area inset so modal overlay isn't cut off on notched phones */
+  padding-bottom: max(20px, env(safe-area-inset-bottom));
   animation: fadeIn 150ms ease-out;
 }
 @keyframes fadeIn {
@@ -841,7 +859,9 @@ table td input.form-input.item-qty-input {
   border: 1px solid rgba(0,0,0,0.08);
   width: 100%;
   max-width: 580px;
-  max-height: 90vh;
+  /* Use dvh (dynamic viewport height) for iOS where the address bar affects height */
+  max-height: 90dvh;
+  max-height: 90vh; /* fallback for browsers that don't support dvh */
   display: flex;
   flex-direction: column;
   animation: modalSlideUp 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -1124,10 +1144,13 @@ table td input.form-input.item-qty-input {
 }
 
 /* ── Scrollbar styling ───────────────────────────────────────── */
+/* Chrome / Safari / Edge */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #c0c7c2; }
+/* Firefox */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
 /* ── Dashboard panels (responsive replacement for inline grid) ── */
 .dashboard-panels {
@@ -1172,13 +1195,16 @@ table td input.form-input.item-qty-input {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  /* Height accounts for iOS home indicator / safe area */
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
   background: var(--white);
   border-top: 1px solid var(--border);
   z-index: 200;
   justify-content: space-around;
-  align-items: center;
+  align-items: flex-start;
   padding: 0 4px;
+  /* Safe area padding so items sit above the home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: 0 -3px 12px rgba(15, 30, 20, 0.08);
 }
 .bottom-nav-item {
@@ -1268,6 +1294,13 @@ table td input.form-input.item-qty-input {
 
 /* Mobile-only invoice line items card list — hidden on desktop */
 .inv-mobile-items { display: none; }
+/* Desktop invoice table — hidden on mobile (controlled by CSS breakpoint, not JS) */
+.inv-desktop-table { display: block; }
+
+/* Mobile-only Purchasing card list — hidden on desktop */
+.po-mobile-items { display: none; }
+/* Desktop Purchasing table — shown on desktop */
+.po-desktop-table { display: block; }
 
 /* ═══════════════════════════════════════════════════════════════
    TABLET BREAKPOINT — ≤ 1024px
@@ -1292,7 +1325,7 @@ table td input.form-input.item-qty-input {
 
   .main-area { width: 100%; }
 
-  /* POS layout stacks vertically */
+  /* POS layout stacks vertically on tablet */
   .pos-layout {
     grid-template-columns: 1fr;
     height: auto;
@@ -1343,6 +1376,14 @@ table td input.form-input.item-qty-input {
   .search-bar {
     flex-wrap: wrap;
   }
+
+  /* Topbar title shouldn't overflow */
+  .topbar-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1363,35 +1404,57 @@ table td input.form-input.item-qty-input {
   /* Show bottom nav */
   .bottom-nav { display: flex; }
 
-  /* Page content needs bottom padding for bottom nav */
+  /* Page content: compact padding + room above bottom nav + iOS safe area */
   .page-content {
     padding: 12px;
-    padding-bottom: 72px;
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* KPI grid: 2 columns on phone for Reports/CashBook */
+  /* KPI grid: 2 columns on phone */
   .kpi-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  /* Page header: wrap but keep in a row */
+  /* Page header: wrap so buttons don't overflow at 375px */
   .page-header {
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px;
   }
+  /* Button group in page-header wraps at 375px */
+  .page-header > div,
+  .page-header > .flex {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
 
-  /* Page title smaller */
-  .page-title { font-size: 15px; }
+  /* Page title smaller + no overflow */
+  .page-title {
+    font-size: 15px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100vw - 120px);
+  }
 
   /* Topbar compact */
   .topbar {
     padding: 0 12px;
     gap: 8px;
+    min-width: 0;
   }
   .topbar-meta { display: none; }
   .topbar-user span { display: none; }
+  /* Topbar title: don't let it push avatar off-screen */
+  .topbar-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13.5px;
+  }
 
   /* Data table always scrolls horizontally on mobile */
   .data-table-wrap {
@@ -1404,7 +1467,24 @@ table td input.form-input.item-qty-input {
   .data-table th { padding: 6px 8px; font-size: 10px; }
   .data-table td { padding: 6px 8px; }
 
-  /* POS save button: normal flow, NOT sticky — avoids overlap with notes */
+  /* Table action buttons: tighten up on mobile */
+  .table-actions-group .btn,
+  .table-actions-group .btn-sm {
+    padding: 6px 8px;
+    font-size: 11px;
+    min-height: 36px;
+  }
+  .table-actions-group .btn-icon {
+    padding: 8px;
+    min-height: 36px;
+    min-width: 36px;
+  }
+  /* Hide text labels in table action buttons and header buttons on mobile, keep icons */
+  .table-actions-group .lbl,
+  .page-header .lbl,
+  .btn .lbl { display: none !important; }
+
+  /* POS save button: normal flow */
   .pos-save-sticky {
     position: static;
     bottom: auto;
@@ -1434,9 +1514,9 @@ table td input.form-input.item-qty-input {
     min-height: 44px;
   }
   .btn-sm {
-    padding: 10px 14px;
+    padding: 8px 12px;
     font-size: 12.5px;
-    min-height: 44px;
+    min-height: 40px;
   }
   .btn-icon {
     padding: 10px;
@@ -1459,8 +1539,50 @@ table td input.form-input.item-qty-input {
   .search-bar .form-select { width: 100% !important; }
 
   /* Invoicing: hide desktop table, show mobile cards */
-  .data-table-wrap[style*="--inv-table-display"] { display: none !important; }
+  .inv-desktop-table { display: none !important; }
   .inv-mobile-items { display: block; }
+
+  /* Purchasing: hide desktop table, show mobile cards */
+  .po-desktop-table { display: none !important; }
+  .po-mobile-items { display: block; }
+
+  /* Purchasing POS layout — on mobile, stack vertically and put summary below items */
+  .pos-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: auto;
+  }
+  /* Right sidebar (summary + save) comes after left on mobile naturally */
+  .pos-right {
+    width: 100%;
+  }
+
+  /* Modal touch-friendly on mobile */
+  .modal {
+    max-width: 100vw;
+    margin: 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    max-height: 92dvh;
+    max-height: 92vh;
+  }
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-lg {
+    max-width: 100vw;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+
+  /* Dashboard KPI: show as 2-column (odd card takes full row gracefully) */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kpi-grid > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+  /* Dashboard panels: single column already handled above */
 }
 
 /* ═══════════════════════════════════════════════════════════════

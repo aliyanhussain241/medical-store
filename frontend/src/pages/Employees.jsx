@@ -248,7 +248,7 @@ export default function Employees() {
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <div className="table-actions-group" style={{ justifyContent: 'center' }}>
                         <button
                           className="btn btn-sm btn-primary"
                           style={{ padding: '4px 8px', fontSize: 12 }}
@@ -256,7 +256,7 @@ export default function Employees() {
                           onClick={() => openPay(emp)}
                           disabled={!emp.isActive}
                         >
-                          <DollarSign size={13} /> Pay
+                          <DollarSign size={13} /> <span className="lbl">Pay</span>
                         </button>
                         <button
                           className="btn btn-sm btn-secondary"
@@ -312,7 +312,7 @@ export default function Employees() {
                   />
                 </div>
 
-                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Designation / Role</label>
                     <input
@@ -336,7 +336,7 @@ export default function Employees() {
                   </div>
                 </div>
 
-                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Town</label>
                     <input
@@ -410,7 +410,7 @@ export default function Employees() {
                   </div>
                 </div>
 
-                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Payment Date <span className="req">*</span></label>
                     <input
