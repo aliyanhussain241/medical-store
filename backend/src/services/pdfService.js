@@ -775,6 +775,175 @@ function generatePartyBalancePDF(reportData, user) {
   });
 }
 
+// ─────────────────────────────────────────────────────────────
+// TRIAL BALANCE PDF
+// ─────────────────────────────────────────────────────────────
+function generateTrialBalancePDF(data, user) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    drawHeader(doc, user, 'Trial Balance', `As on: ${formatDate(data.asOnDate)}`);
+
+    const marginL = 40;
+    const colWidths = [250, 130, 130];
+    const headers = ['Account Name', 'Debit (Rs)', 'Credit (Rs)'];
+
+    let y = 80;
+    let currentSection = '';
+
+    // Section header helper
+    function sectionHeader(label) {
+      if (y > 720) { doc.addPage(); y = 40; }
+      doc.rect(marginL, y, colWidths.reduce((a, b) => a + b, 0), 18).fill('#E8F0EB');
+      doc.fillColor(COLORS.brand).fontSize(9).font('Helvetica-Bold')
+        .text(label, marginL + 6, y + 5, { width: 400 });
+      y += 18;
+    }
+
+    // Table header
+    const tableW = colWidths.reduce((a, b) => a + b, 0);
+    doc.rect(marginL, y, tableW, 18).fill(COLORS.brand);
+    let x = marginL;
+    headers.forEach((h, i) => {
+      doc.fillColor('#FFFFFF').fontSize(8).font('Helvetica-Bold')
+        .text(h, x + 4, y + 5, { width: colWidths[i] - 8, align: i > 0 ? 'right' : 'left' });
+      x += colWidths[i];
+    });
+    y += 18;
+
+    // Data rows
+    for (const row of data.rows) {
+      if (row.section !== currentSection) {
+        currentSection = row.section;
+        sectionHeader(currentSection);
+      }
+      if (y > 740) { doc.addPage(); y = 40; }
+      const bg = '#FFFFFF';
+      doc.rect(marginL, y, tableW, 18).fill(bg);
+      doc.moveTo(marginL, y + 18).lineTo(marginL + tableW, y + 18)
+        .strokeColor(COLORS.border).lineWidth(0.3).stroke();
+
+      doc.fillColor(COLORS.text).fontSize(8).font('Helvetica')
+        .text(row.name, marginL + 6, y + 5, { width: colWidths[0] - 12 })
+        .text(row.debit > 0 ? formatPKR(row.debit) : '—', marginL + colWidths[0] + 4, y + 5, { width: colWidths[1] - 8, align: 'right' })
+        .text(row.credit > 0 ? formatPKR(row.credit) : '—', marginL + colWidths[0] + colWidths[1] + 4, y + 5, { width: colWidths[2] - 8, align: 'right' });
+      y += 18;
+    }
+
+    // Totals row
+    if (y > 720) { doc.addPage(); y = 40; }
+    doc.rect(marginL, y, tableW, 22).fill(COLORS.brand);
+    doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
+      .text('TOTAL', marginL + 6, y + 6, { width: colWidths[0] - 12 })
+      .text(formatPKR(data.totalDebit), marginL + colWidths[0] + 4, y + 6, { width: colWidths[1] - 8, align: 'right' })
+      .text(formatPKR(data.totalCredit), marginL + colWidths[0] + colWidths[1] + 4, y + 6, { width: colWidths[2] - 8, align: 'right' });
+    y += 28;
+
+    // Balance check
+    const statusText = data.isBalanced
+      ? '✓ Trial Balance is BALANCED — Debit and Credit totals match.'
+      : `⚠ WARNING: Trial Balance is NOT BALANCED — Difference: ${formatPKR(data.difference)}`;
+    const statusColor = data.isBalanced ? COLORS.paid : COLORS.alert;
+    doc.fillColor(statusColor).fontSize(10).font('Helvetica-Bold')
+      .text(statusText, marginL, y, { width: tableW, align: 'center' });
+
+    doc.end();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// BALANCE SHEET PDF
+// ─────────────────────────────────────────────────────────────
+function generateBalanceSheetPDF(data, user) {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
+    const chunks = [];
+    doc.on('data', (c) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    drawHeader(doc, user, 'Balance Sheet', `As on: ${formatDate(data.asOnDate)}`);
+
+    const marginL = 40;
+    const colWidths = [340, 170];
+    const tableW = colWidths[0] + colWidths[1];
+    let y = 80;
+
+    function sectionHeader(label) {
+      if (y > 720) { doc.addPage(); y = 40; }
+      doc.rect(marginL, y, tableW, 20).fill(COLORS.brand);
+      doc.fillColor('#FFFFFF').fontSize(10).font('Helvetica-Bold')
+        .text(label, marginL + 8, y + 5, { width: 300 });
+      y += 20;
+    }
+
+    function dataRow(name, amount, bold) {
+      if (y > 740) { doc.addPage(); y = 40; }
+      doc.rect(marginL, y, tableW, 18).fill('#FFFFFF');
+      doc.moveTo(marginL, y + 18).lineTo(marginL + tableW, y + 18)
+        .strokeColor(COLORS.border).lineWidth(0.3).stroke();
+      const font = bold ? 'Helvetica-Bold' : 'Helvetica';
+      doc.fillColor(COLORS.text).fontSize(8.5).font(font)
+        .text(name, marginL + 10, y + 5, { width: colWidths[0] - 16 })
+        .text(formatPKR(amount), marginL + colWidths[0] + 4, y + 5, { width: colWidths[1] - 8, align: 'right' });
+      y += 18;
+    }
+
+    function totalRow(label, amount, bg) {
+      if (y > 720) { doc.addPage(); y = 40; }
+      doc.rect(marginL, y, tableW, 22).fill(bg || '#E8F0EB');
+      doc.fillColor(COLORS.brand).fontSize(9).font('Helvetica-Bold')
+        .text(label, marginL + 8, y + 6, { width: colWidths[0] - 16 })
+        .text(formatPKR(amount), marginL + colWidths[0] + 4, y + 6, { width: colWidths[1] - 8, align: 'right' });
+      y += 26;
+    }
+
+    // Assets
+    sectionHeader('ASSETS');
+    for (const item of data.assets) {
+      dataRow(item.name, item.amount, false);
+    }
+    totalRow('Total Assets', data.totalAssets);
+
+    // Liabilities
+    sectionHeader('LIABILITIES');
+    for (const item of data.liabilities) {
+      dataRow(item.name, item.amount, false);
+    }
+    totalRow('Total Liabilities', data.totalLiabilities);
+
+    // Equity
+    sectionHeader('EQUITY');
+    for (const item of data.equity) {
+      dataRow(item.name, item.amount, true);
+    }
+    totalRow('Total Equity', data.totalEquity);
+
+    // Final check row
+    totalRow('Total Liabilities + Equity', data.totalLiabilitiesAndEquity, COLORS.brand);
+    // Rewrite last total in white text
+    doc.fillColor('#FFFFFF').fontSize(9).font('Helvetica-Bold')
+      .text('Total Liabilities + Equity', marginL + 8, y - 20, { width: colWidths[0] - 16 })
+      .text(formatPKR(data.totalLiabilitiesAndEquity), marginL + colWidths[0] + 4, y - 20, { width: colWidths[1] - 8, align: 'right' });
+
+    y += 8;
+
+    // Balance check
+    const statusText = data.isBalanced
+      ? '✓ Balance Sheet is BALANCED — Assets = Liabilities + Equity'
+      : `⚠ WARNING: Balance Sheet is NOT BALANCED — Difference: ${formatPKR(data.difference)}`;
+    const statusColor = data.isBalanced ? COLORS.paid : COLORS.alert;
+    doc.fillColor(statusColor).fontSize(10).font('Helvetica-Bold')
+      .text(statusText, marginL, y, { width: tableW, align: 'center' });
+
+    doc.end();
+  });
+}
+
 module.exports = {
   generateInvoicePDF,
   generateLedgerPDF,
@@ -782,4 +951,7 @@ module.exports = {
   generateProfitPDF,
   generateOfferListPDF,
   generatePartyBalancePDF,
+  generateTrialBalancePDF,
+  generateBalanceSheetPDF,
 };
+

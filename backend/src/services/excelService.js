@@ -738,6 +738,142 @@ async function generatePartyBalanceExcel(reportData, user) {
   return buffer;
 }
 
+// ─────────────────────────────────────────────────────────────
+// TRIAL BALANCE EXCEL
+// ─────────────────────────────────────────────────────────────
+async function generateTrialBalanceExcel(data, user) {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('Trial Balance');
+  sheet.columns = [
+    { width: 40 },
+    { width: 20 },
+    { width: 20 },
+  ];
+
+  addBusinessHeader(sheet, user, `Trial Balance — As on: ${data.asOnDate}`, 3);
+
+  // Header row
+  const headerRow = sheet.addRow(['Account Name', 'Debit (Rs)', 'Credit (Rs)']);
+  headerRow.eachCell((cell) => applyHeaderStyle(cell));
+  headerRow.height = 22;
+
+  let currentSection = '';
+  for (const row of data.rows) {
+    if (row.section !== currentSection) {
+      currentSection = row.section;
+      const secRow = sheet.addRow([currentSection, '', '']);
+      secRow.eachCell((cell) => {
+        cell.font = { bold: true, size: 9, color: { argb: 'FF' + BRAND_GREEN } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F0EB' } };
+      });
+      secRow.height = 20;
+    }
+
+    const dr = sheet.addRow([
+      row.name,
+      row.debit > 0 ? parseFloat(row.debit.toFixed(2)) : '',
+      row.credit > 0 ? parseFloat(row.credit.toFixed(2)) : '',
+    ]);
+    dr.eachCell((cell, colNum) => {
+      applyDataStyle(cell, colNum > 1);
+    });
+  }
+
+  // Totals row
+  const totalRow = sheet.addRow(['TOTAL', parseFloat(data.totalDebit.toFixed(2)), parseFloat(data.totalCredit.toFixed(2))]);
+  totalRow.eachCell((cell) => applyHeaderStyle(cell));
+  totalRow.height = 24;
+
+  // Balance check row
+  const statusText = data.isBalanced
+    ? '✓ Trial Balance is BALANCED'
+    : `⚠ NOT BALANCED — Difference: Rs ${data.difference.toFixed(2)}`;
+  sheet.addRow([]);
+  const statusRow = sheet.addRow([statusText, '', '']);
+  sheet.mergeCells(statusRow.number, 1, statusRow.number, 3);
+  const statusCell = statusRow.getCell(1);
+  statusCell.font = { bold: true, size: 11, color: { argb: data.isBalanced ? 'FF166534' : 'FFB4372B' } };
+  statusCell.alignment = { horizontal: 'center' };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return buffer;
+}
+
+// ─────────────────────────────────────────────────────────────
+// BALANCE SHEET EXCEL
+// ─────────────────────────────────────────────────────────────
+async function generateBalanceSheetExcel(data, user) {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('Balance Sheet');
+  sheet.columns = [
+    { width: 45 },
+    { width: 22 },
+  ];
+
+  addBusinessHeader(sheet, user, `Balance Sheet — As on: ${data.asOnDate}`, 2);
+
+  function sectionHeader(label) {
+    const row = sheet.addRow([label, '']);
+    row.eachCell((cell) => applyHeaderStyle(cell));
+    row.height = 22;
+  }
+
+  function dataRow(name, amount, bold) {
+    const row = sheet.addRow([name, parseFloat(amount.toFixed(2))]);
+    row.eachCell((cell, colNum) => {
+      applyDataStyle(cell, colNum === 2);
+      if (bold) cell.font = { ...cell.font, bold: true };
+    });
+  }
+
+  function totalRow(label, amount, color) {
+    const row = sheet.addRow([label, parseFloat(amount.toFixed(2))]);
+    row.eachCell((cell) => applyHeaderStyle(cell, color || BRAND_GREEN));
+    row.height = 24;
+  }
+
+  // Assets
+  sectionHeader('ASSETS');
+  for (const item of data.assets) {
+    dataRow(item.name, item.amount, false);
+  }
+  totalRow('Total Assets', data.totalAssets);
+  sheet.addRow([]);
+
+  // Liabilities
+  sectionHeader('LIABILITIES');
+  for (const item of data.liabilities) {
+    dataRow(item.name, item.amount, false);
+  }
+  totalRow('Total Liabilities', data.totalLiabilities);
+  sheet.addRow([]);
+
+  // Equity
+  sectionHeader('EQUITY');
+  for (const item of data.equity) {
+    dataRow(item.name, item.amount, true);
+  }
+  totalRow('Total Equity', data.totalEquity);
+  sheet.addRow([]);
+
+  // Final total
+  totalRow('Total Liabilities + Equity', data.totalLiabilitiesAndEquity);
+
+  // Balance check
+  sheet.addRow([]);
+  const statusText = data.isBalanced
+    ? '✓ Balance Sheet is BALANCED — Assets = Liabilities + Equity'
+    : `⚠ NOT BALANCED — Difference: Rs ${data.difference.toFixed(2)}`;
+  const statusRow = sheet.addRow([statusText, '']);
+  sheet.mergeCells(statusRow.number, 1, statusRow.number, 2);
+  const statusCell = statusRow.getCell(1);
+  statusCell.font = { bold: true, size: 11, color: { argb: data.isBalanced ? 'FF166534' : 'FFB4372B' } };
+  statusCell.alignment = { horizontal: 'center' };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return buffer;
+}
+
 module.exports = {
   generateInvoiceExcel,
   generateLedgerExcel,
@@ -745,4 +881,7 @@ module.exports = {
   generateProfitExcel,
   generateOfferListExcel,
   generatePartyBalanceExcel,
+  generateTrialBalanceExcel,
+  generateBalanceSheetExcel,
 };
+

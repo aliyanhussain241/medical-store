@@ -27,6 +27,8 @@ import BankLedger from './pages/BankLedger';
 import Cities from './pages/Cities';
 import Employees from './pages/Employees';
 import ChartOfAccounts from './pages/ChartOfAccounts';
+import TrialBalance from './pages/TrialBalance';
+import BalanceSheet from './pages/BalanceSheet';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -83,6 +85,8 @@ export default function App() {
               <Route path="ledger/bank" element={<BankLedger />} />
               <Route path="payroll" element={<Employees />} />
               <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
+              <Route path="reports/trial-balance" element={<TrialBalance />} />
+              <Route path="reports/balance-sheet" element={<BalanceSheet />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

@@ -10,7 +10,7 @@ import {
   LayoutDashboard, FileText, ShoppingCart, Users, Building2,
   Package, BookOpen, BookMarked, DollarSign, BarChart2, LogOut,
   Menu, X, MoreHorizontal, Tag, FileSpreadsheet, Landmark,
-  MapPin, UserCheck, Layers
+  MapPin, UserCheck, Layers, Scale, Sheet
 } from 'lucide-react';
 
 const NAV = [
@@ -36,6 +36,8 @@ const NAV = [
   { section: 'Reports' },
   { label: 'Profit & Loss', to: '/reports', icon: BarChart2 },
   { label: 'Party Balance', to: '/reports/party-balance', icon: FileSpreadsheet },
+  { label: 'Trial Balance', to: '/reports/trial-balance', icon: Scale },
+  { label: 'Balance Sheet', to: '/reports/balance-sheet', icon: Sheet },
 ];
 
 // Bottom nav items for phone view

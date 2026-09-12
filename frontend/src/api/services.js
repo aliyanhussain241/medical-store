@@ -144,6 +144,8 @@ export const offerListsAPI = {
 export const reportsAPI = {
   profit: (params) => api.get('/reports/profit', { params }),
   partyBalance: (params) => api.get('/reports/party-balance', { params }),
+  trialBalance: (params) => api.get('/reports/trial-balance', { params }),
+  balanceSheet: (params) => api.get('/reports/balance-sheet', { params }),
 };
 
 // ── Exports (download as blob) ────────────────────────────────
@@ -164,6 +166,10 @@ export const exportAPI = {
   offerListExcel: (id) => api.get(`/export/offer-list/${id}/excel`, { responseType: 'blob' }),
   partyBalancePDF: (params) => api.get('/export/party-balance/pdf', { params, responseType: 'blob' }),
   partyBalanceExcel: (params) => api.get('/export/party-balance/excel', { params, responseType: 'blob' }),
+  trialBalancePDF: (params) => api.get('/export/trial-balance/pdf', { params, responseType: 'blob' }),
+  trialBalanceExcel: (params) => api.get('/export/trial-balance/excel', { params, responseType: 'blob' }),
+  balanceSheetPDF: (params) => api.get('/export/balance-sheet/pdf', { params, responseType: 'blob' }),
+  balanceSheetExcel: (params) => api.get('/export/balance-sheet/excel', { params, responseType: 'blob' }),
 };
 
 // ── Helper: trigger file download from blob response ──────────

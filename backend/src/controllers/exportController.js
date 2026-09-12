@@ -3,9 +3,9 @@
 // Handles all PDF + Excel export routes (single controller)
 // ─────────────────────────────────────────────────────────────
 const prisma = require('../utils/prismaClient');
-const { generateInvoicePDF, generateLedgerPDF, generateCashBookPDF, generateProfitPDF, generateOfferListPDF, generatePartyBalancePDF } = require('../services/pdfService');
-const { generateInvoiceExcel, generateLedgerExcel, generateCashBookExcel, generateProfitExcel, generateOfferListExcel, generatePartyBalanceExcel } = require('../services/excelService');
-const { getPartyBalanceData } = require('./reportController');
+const { generateInvoicePDF, generateLedgerPDF, generateCashBookPDF, generateProfitPDF, generateOfferListPDF, generatePartyBalancePDF, generateTrialBalancePDF, generateBalanceSheetPDF } = require('../services/pdfService');
+const { generateInvoiceExcel, generateLedgerExcel, generateCashBookExcel, generateProfitExcel, generateOfferListExcel, generatePartyBalanceExcel, generateTrialBalanceExcel, generateBalanceSheetExcel } = require('../services/excelService');
+const { getPartyBalanceData, getFinancialData } = require('./reportController');
 
 async function getUser(userId) {
   return prisma.user.findUnique({ where: { id: userId } });
@@ -447,6 +447,201 @@ async function partyBalanceExcel(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// ── GET /api/export/trial-balance/pdf ─────────────────────────
+async function trialBalancePDF(req, res, next) {
+  try {
+    const { asOn } = req.query;
+    const fd = await getFinancialData(req.user.id, asOn);
+    // Build the same data structure as the trial balance endpoint
+    const rows = [];
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    function addRow(section, name, debit, credit) {
+      rows.push({ section, name, debit: Math.abs(debit), credit: Math.abs(credit) });
+      totalDebit += Math.abs(debit);
+      totalCredit += Math.abs(credit);
+    }
+
+    if (Math.abs(fd.cashBalance) > 0.005) {
+      if (fd.cashBalance > 0) addRow('Assets — Cash & Bank', 'Cash in Hand', fd.cashBalance, 0);
+      else addRow('Assets — Cash & Bank', 'Cash in Hand', 0, Math.abs(fd.cashBalance));
+    }
+    for (const ba of fd.bankBalances) {
+      if (Math.abs(ba.balance) > 0.005) {
+        if (ba.balance > 0) addRow('Assets — Cash & Bank', ba.name, ba.balance, 0);
+        else addRow('Assets — Cash & Bank', ba.name, 0, Math.abs(ba.balance));
+      }
+    }
+    if (fd.inventoryValue > 0.005) addRow('Assets — Inventory', 'Inventory (at cost)', fd.inventoryValue, 0);
+    if (fd.totalReceivableDr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — DR)', fd.totalReceivableDr, 0);
+    if (fd.totalReceivableCr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — CR)', 0, fd.totalReceivableCr);
+    if (fd.totalPayableCr > 0.005) addRow('Payables', 'Accounts Payable (Companies — CR)', 0, fd.totalPayableCr);
+    if (fd.totalPayableDr > 0.005) addRow('Payables', 'Accounts Payable (Companies — DR)', fd.totalPayableDr, 0);
+    for (const h of fd.headBalances.filter((h) => h.category === 'LIABILITY')) {
+      if (h.balance > 0) addRow('Liabilities', h.name, 0, h.balance);
+      else addRow('Liabilities', h.name, Math.abs(h.balance), 0);
+    }
+    for (const h of fd.headBalances.filter((h) => h.category === 'INCOME')) {
+      if (h.balance > 0) addRow('Income', h.name, 0, h.balance);
+      else addRow('Income', h.name, Math.abs(h.balance), 0);
+    }
+    for (const h of fd.headBalances.filter((h) => h.category === 'EXPENSE')) {
+      if (h.balance > 0) addRow('Expenses', h.name, h.balance, 0);
+      else addRow('Expenses', h.name, 0, Math.abs(h.balance));
+    }
+
+    const diff = Math.abs(totalDebit - totalCredit);
+    const data = {
+      asOnDate: fd.asOnDate, rows,
+      totalDebit: parseFloat(totalDebit.toFixed(2)),
+      totalCredit: parseFloat(totalCredit.toFixed(2)),
+      difference: parseFloat(diff.toFixed(2)),
+      isBalanced: diff < 0.01,
+    };
+
+    const user = await getUser(req.user.id);
+    const buffer = await generateTrialBalancePDF(data, user);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="TrialBalance-${fd.asOnDate}.pdf"` });
+    res.send(buffer);
+  } catch (err) { next(err); }
+}
+
+// ── GET /api/export/trial-balance/excel ───────────────────────
+async function trialBalanceExcel(req, res, next) {
+  try {
+    const { asOn } = req.query;
+    const fd = await getFinancialData(req.user.id, asOn);
+    const rows = [];
+    let totalDebit = 0;
+    let totalCredit = 0;
+
+    function addRow(section, name, debit, credit) {
+      rows.push({ section, name, debit: Math.abs(debit), credit: Math.abs(credit) });
+      totalDebit += Math.abs(debit);
+      totalCredit += Math.abs(credit);
+    }
+
+    if (Math.abs(fd.cashBalance) > 0.005) {
+      if (fd.cashBalance > 0) addRow('Assets — Cash & Bank', 'Cash in Hand', fd.cashBalance, 0);
+      else addRow('Assets — Cash & Bank', 'Cash in Hand', 0, Math.abs(fd.cashBalance));
+    }
+    for (const ba of fd.bankBalances) {
+      if (Math.abs(ba.balance) > 0.005) {
+        if (ba.balance > 0) addRow('Assets — Cash & Bank', ba.name, ba.balance, 0);
+        else addRow('Assets — Cash & Bank', ba.name, 0, Math.abs(ba.balance));
+      }
+    }
+    if (fd.inventoryValue > 0.005) addRow('Assets — Inventory', 'Inventory (at cost)', fd.inventoryValue, 0);
+    if (fd.totalReceivableDr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — DR)', fd.totalReceivableDr, 0);
+    if (fd.totalReceivableCr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — CR)', 0, fd.totalReceivableCr);
+    if (fd.totalPayableCr > 0.005) addRow('Payables', 'Accounts Payable (Companies — CR)', 0, fd.totalPayableCr);
+    if (fd.totalPayableDr > 0.005) addRow('Payables', 'Accounts Payable (Companies — DR)', fd.totalPayableDr, 0);
+    for (const h of fd.headBalances.filter((h) => h.category === 'LIABILITY')) {
+      if (h.balance > 0) addRow('Liabilities', h.name, 0, h.balance);
+      else addRow('Liabilities', h.name, Math.abs(h.balance), 0);
+    }
+    for (const h of fd.headBalances.filter((h) => h.category === 'INCOME')) {
+      if (h.balance > 0) addRow('Income', h.name, 0, h.balance);
+      else addRow('Income', h.name, Math.abs(h.balance), 0);
+    }
+    for (const h of fd.headBalances.filter((h) => h.category === 'EXPENSE')) {
+      if (h.balance > 0) addRow('Expenses', h.name, h.balance, 0);
+      else addRow('Expenses', h.name, 0, Math.abs(h.balance));
+    }
+
+    const diff = Math.abs(totalDebit - totalCredit);
+    const data = {
+      asOnDate: fd.asOnDate, rows,
+      totalDebit: parseFloat(totalDebit.toFixed(2)),
+      totalCredit: parseFloat(totalCredit.toFixed(2)),
+      difference: parseFloat(diff.toFixed(2)),
+      isBalanced: diff < 0.01,
+    };
+
+    const user = await getUser(req.user.id);
+    const buffer = await generateTrialBalanceExcel(data, user);
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="TrialBalance-${fd.asOnDate}.xlsx"` });
+    res.send(buffer);
+  } catch (err) { next(err); }
+}
+
+// ── GET /api/export/balance-sheet/pdf ─────────────────────────
+async function balanceSheetPDF(req, res, next) {
+  try {
+    const { asOn } = req.query;
+    const fd = await getFinancialData(req.user.id, asOn);
+
+    const assets = [
+      { name: 'Cash in Hand', amount: fd.cashBalance },
+      ...fd.bankBalances.map((ba) => ({ name: ba.name, amount: ba.balance })),
+      { name: 'Accounts Receivable (Customers)', amount: fd.totalReceivableDr - fd.totalReceivableCr },
+      { name: 'Inventory (at cost)', amount: fd.inventoryValue },
+    ];
+    const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
+
+    const liabilities = [
+      { name: 'Accounts Payable (Companies)', amount: fd.totalPayableCr - fd.totalPayableDr },
+      ...fd.headBalances.filter((h) => h.category === 'LIABILITY').map((h) => ({ name: h.name, amount: h.balance })),
+    ];
+    const totalLiabilities = liabilities.reduce((s, l) => s + l.amount, 0);
+    const equity = totalAssets - totalLiabilities;
+    const data = {
+      asOnDate: fd.asOnDate,
+      assets, totalAssets: parseFloat(totalAssets.toFixed(2)),
+      liabilities, totalLiabilities: parseFloat(totalLiabilities.toFixed(2)),
+      equity: [{ name: "Owner's Equity (Derived)", amount: equity }],
+      totalEquity: parseFloat(equity.toFixed(2)),
+      totalLiabilitiesAndEquity: parseFloat((totalLiabilities + equity).toFixed(2)),
+      difference: parseFloat(Math.abs(totalAssets - (totalLiabilities + equity)).toFixed(2)),
+      isBalanced: Math.abs(totalAssets - (totalLiabilities + equity)) < 0.01,
+    };
+
+    const user = await getUser(req.user.id);
+    const buffer = await generateBalanceSheetPDF(data, user);
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="BalanceSheet-${fd.asOnDate}.pdf"` });
+    res.send(buffer);
+  } catch (err) { next(err); }
+}
+
+// ── GET /api/export/balance-sheet/excel ───────────────────────
+async function balanceSheetExcel(req, res, next) {
+  try {
+    const { asOn } = req.query;
+    const fd = await getFinancialData(req.user.id, asOn);
+
+    const assets = [
+      { name: 'Cash in Hand', amount: fd.cashBalance },
+      ...fd.bankBalances.map((ba) => ({ name: ba.name, amount: ba.balance })),
+      { name: 'Accounts Receivable (Customers)', amount: fd.totalReceivableDr - fd.totalReceivableCr },
+      { name: 'Inventory (at cost)', amount: fd.inventoryValue },
+    ];
+    const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
+
+    const liabilities = [
+      { name: 'Accounts Payable (Companies)', amount: fd.totalPayableCr - fd.totalPayableDr },
+      ...fd.headBalances.filter((h) => h.category === 'LIABILITY').map((h) => ({ name: h.name, amount: h.balance })),
+    ];
+    const totalLiabilities = liabilities.reduce((s, l) => s + l.amount, 0);
+    const equity = totalAssets - totalLiabilities;
+    const data = {
+      asOnDate: fd.asOnDate,
+      assets, totalAssets: parseFloat(totalAssets.toFixed(2)),
+      liabilities, totalLiabilities: parseFloat(totalLiabilities.toFixed(2)),
+      equity: [{ name: "Owner's Equity (Derived)", amount: equity }],
+      totalEquity: parseFloat(equity.toFixed(2)),
+      totalLiabilitiesAndEquity: parseFloat((totalLiabilities + equity).toFixed(2)),
+      difference: parseFloat(Math.abs(totalAssets - (totalLiabilities + equity)).toFixed(2)),
+      isBalanced: Math.abs(totalAssets - (totalLiabilities + equity)) < 0.01,
+    };
+
+    const user = await getUser(req.user.id);
+    const buffer = await generateBalanceSheetExcel(data, user);
+    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="BalanceSheet-${fd.asOnDate}.xlsx"` });
+    res.send(buffer);
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   invoicePDF, invoiceExcel,
   customerLedgerPDF, customerLedgerExcel,
@@ -456,4 +651,6 @@ module.exports = {
   profitPDF, profitExcel,
   offerListPDF, offerListExcel,
   partyBalancePDF, partyBalanceExcel,
+  trialBalancePDF, trialBalanceExcel,
+  balanceSheetPDF, balanceSheetExcel,
 };

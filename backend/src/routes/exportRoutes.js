@@ -9,6 +9,8 @@ const {
   profitPDF, profitExcel,
   offerListPDF, offerListExcel,
   partyBalancePDF, partyBalanceExcel,
+  trialBalancePDF, trialBalanceExcel,
+  balanceSheetPDF, balanceSheetExcel,
 } = require('../controllers/exportController');
 
 const router = Router();
@@ -45,5 +47,13 @@ router.get('/offer-list/:id/excel', offerListExcel);
 // Party balance report exports
 router.get('/party-balance/pdf', partyBalancePDF);
 router.get('/party-balance/excel', partyBalanceExcel);
+
+// Trial balance exports
+router.get('/trial-balance/pdf', trialBalancePDF);
+router.get('/trial-balance/excel', trialBalanceExcel);
+
+// Balance sheet exports
+router.get('/balance-sheet/pdf', balanceSheetPDF);
+router.get('/balance-sheet/excel', balanceSheetExcel);
 
 module.exports = router;
