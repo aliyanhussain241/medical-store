@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // src/pages/Companies.jsx — Full CRUD for supplier companies
 // + debounced search + server-side pagination
+// + business-type config-driven labels
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,12 +11,14 @@ import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { useBusinessConfig } from '../context/BusinessConfigContext';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 const EMPTY = { companyName: '', contactPerson: '', phone: '', address: '', openingBalance: '', town: '', sector: '', cnic: '' };
 const PAGE_SIZE = 25;
 
 export default function Companies() {
+  const cfg = useBusinessConfig();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -38,14 +41,14 @@ export default function Companies() {
 
   const saveMutation = useMutation({
     mutationFn: (d) => editId ? companiesAPI.update(editId, d) : companiesAPI.create(d),
-    onSuccess: () => { qc.invalidateQueries(['companies']); toast.success(editId ? 'Company updated.' : 'Company added.'); closeModal(); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Error saving company.'),
+    onSuccess: () => { qc.invalidateQueries(['companies']); toast.success(editId ? `${cfg.supplierLabel} updated.` : `${cfg.supplierLabel} added.`); closeModal(); },
+    onError: (e) => toast.error(e.response?.data?.message || `Error saving ${cfg.supplierLabel.toLowerCase()}.`),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => companiesAPI.delete(id),
-    onSuccess: () => { qc.invalidateQueries(['companies']); toast.success('Company deleted.'); setDelId(null); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Cannot delete company.'),
+    onSuccess: () => { qc.invalidateQueries(['companies']); toast.success(`${cfg.supplierLabel} deleted.`); setDelId(null); },
+    onError: (e) => toast.error(e.response?.data?.message || `Cannot delete ${cfg.supplierLabel.toLowerCase()}.`),
   });
 
   function openAdd() { setForm(EMPTY); setEditId(null); setModal('add'); }
@@ -77,8 +80,8 @@ export default function Companies() {
   return (
     <div>
       <div className="page-header">
-        <h2 className="page-title">Companies / Distributors</h2>
-        <button id="add-company-btn" className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Add Company</button>
+        <h2 className="page-title">{cfg.suppliersLabel}</h2>
+        <button id="add-company-btn" className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Add {cfg.supplierLabel}</button>
       </div>
 
       <div className="search-bar">
@@ -86,7 +89,7 @@ export default function Companies() {
           <Search size={14} />
           <input id="company-search" type="text" className="form-input" placeholder="Search by name, contact, phone..." value={search} onChange={handleSearch} />
         </div>
-        <span className="text-muted">{data?.total || 0} companies</span>
+        <span className="text-muted">{data?.total || 0} {cfg.suppliersLabel.toLowerCase()}</span>
       </div>
 
       <div className="card">
@@ -94,7 +97,7 @@ export default function Companies() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Company Name</th>
+                <th>{cfg.supplierLabel} Name</th>
                 <th>Contact Person</th>
                 <th>Phone</th>
                 <th>Address</th>
@@ -107,7 +110,7 @@ export default function Companies() {
               {isLoading ? (
                 <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
               ) : companies.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No companies found</td></tr>
+                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No {cfg.suppliersLabel.toLowerCase()} found</td></tr>
               ) : companies.map((c) => (
                 <tr key={c.id}>
                   <td style={{ fontWeight: 600 }}>{c.companyName}</td>
@@ -152,13 +155,13 @@ export default function Companies() {
             onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.companyName) saveMutation.mutate(form); })}
           >
             <div className="modal-header">
-              <span>{modal === 'add' ? 'Add Company' : 'Edit Company'}</span>
+              <span>{modal === 'add' ? `Add ${cfg.supplierLabel}` : `Edit ${cfg.supplierLabel}`}</span>
               <button className="btn-icon" onClick={closeModal}><X size={14} /></button>
             </div>
             <div className="modal-body">
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Company Name *</label>
+                  <label className="form-label">{cfg.supplierLabel} Name *</label>
                   <input id="comp-name" className="form-input" value={form.companyName} onChange={set('companyName')} required />
                 </div>
                 <div className="form-group">
@@ -202,7 +205,7 @@ export default function Companies() {
               <button className="btn btn-outline" onClick={closeModal}>Cancel</button>
               <button id="save-company-btn" className="btn btn-primary" disabled={saveMutation.isPending || !form.companyName}
                 onClick={() => saveMutation.mutate(form)}>
-                {saveMutation.isPending ? <span className="spinner" style={{ borderTopColor: '#fff' }} /> : modal === 'add' ? 'Save Company' : 'Update Company'}
+                {saveMutation.isPending ? <span className="spinner" style={{ borderTopColor: '#fff' }} /> : modal === 'add' ? `Save ${cfg.supplierLabel}` : `Update ${cfg.supplierLabel}`}
               </button>
             </div>
           </div>
@@ -213,11 +216,11 @@ export default function Companies() {
         <div className="modal-overlay" onClick={() => setDelId(null)}>
           <div className="modal" style={{ maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">Confirm Delete</div>
-            <div className="modal-body"><p style={{ fontSize: 13 }}>Delete this company? This cannot be undone.</p></div>
+            <div className="modal-body"><p style={{ fontSize: 13 }}>Delete this {cfg.supplierLabel.toLowerCase()}? This cannot be undone.</p></div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setDelId(null)}>Cancel</button>
               <button className="btn btn-danger" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(delId)}>
-                {deleteMutation.isPending ? <span className="spinner" style={{ borderTopColor: '#fff' }} /> : 'Delete Company'}
+                {deleteMutation.isPending ? <span className="spinner" style={{ borderTopColor: '#fff' }} /> : `Delete ${cfg.supplierLabel}`}
               </button>
             </div>
           </div>

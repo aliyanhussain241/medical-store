@@ -23,6 +23,7 @@ model User {
   phone         String?
   address       String?
   role          UserRole  @default(OWNER)
+  businessType  String    @default("PHARMACY") @map("business_type")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   // Relations

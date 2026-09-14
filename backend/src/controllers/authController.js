@@ -43,16 +43,19 @@ async function signup(req, res, next) {
       return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { businessName, ownerName, email, password, phone, address } = req.body;
+    const { businessName, ownerName, email, password, phone, address, businessType } = req.body;
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
     }
 
+    const validTypes = ['PHARMACY', 'GENERAL_STORE', 'HARDWARE_STORE'];
+    const resolvedType = validTypes.includes(businessType) ? businessType : 'PHARMACY';
+
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
-      data: { businessName, ownerName, email, passwordHash, phone, address },
+      data: { businessName, ownerName, email, passwordHash, phone, address, businessType: resolvedType },
     });
 
     // Issue tokens

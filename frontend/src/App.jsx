@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { BusinessConfigProvider } from './context/BusinessConfigContext';
 import { useEffect, useState } from 'react';
 
 import Login from './pages/Login';
@@ -61,6 +62,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+      <BusinessConfigProvider>
         <BrowserRouter>
           <OfflineBanner />
           <Routes>
@@ -92,6 +94,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
         <Toaster position="top-right" toastOptions={{ duration: 3500, style: { fontSize: '13px', fontFamily: 'IBM Plex Sans, sans-serif' } }} />
+      </BusinessConfigProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

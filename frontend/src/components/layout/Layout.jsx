@@ -6,6 +6,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useBusinessConfig } from '../../context/BusinessConfigContext';
 import {
   LayoutDashboard, FileText, ShoppingCart, Users, Building2,
   Package, BookOpen, BookMarked, DollarSign, BarChart2, LogOut,
@@ -13,32 +14,34 @@ import {
   MapPin, UserCheck, Layers, Scale, Sheet
 } from 'lucide-react';
 
-const NAV = [
-  { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
-  { section: 'Sales' },
-  { label: 'Invoicing / Sales', to: '/invoicing', icon: FileText },
-  { label: 'Purchasing', to: '/purchasing', icon: ShoppingCart },
-  { section: 'Registers' },
-  { label: 'Customers', to: '/customers', icon: Users },
-  { label: 'Companies', to: '/companies', icon: Building2 },
-  { label: 'Cities / Areas', to: '/cities', icon: MapPin },
-  { label: 'Inventory', to: '/inventory', icon: Package },
-  { label: 'Offer Lists', to: '/offer-lists', icon: Tag },
-  { section: 'Ledgers' },
-  { label: 'Customer Ledger', to: '/ledger/customer', icon: BookOpen },
-  { label: 'Company Ledger', to: '/ledger/company', icon: BookMarked },
-  { section: 'Accounting' },
-  { label: 'Cash Book', to: '/cash-book', icon: DollarSign },
-  { label: 'Bank Accounts', to: '/bank-accounts', icon: Landmark },
-  { label: 'Bank Ledger', to: '/ledger/bank', icon: Landmark },
-  { label: 'Payroll', to: '/payroll', icon: UserCheck },
-  { label: 'Chart of Accounts', to: '/chart-of-accounts', icon: Layers },
-  { section: 'Reports' },
-  { label: 'Profit & Loss', to: '/reports', icon: BarChart2 },
-  { label: 'Party Balance', to: '/reports/party-balance', icon: FileSpreadsheet },
-  { label: 'Trial Balance', to: '/reports/trial-balance', icon: Scale },
-  { label: 'Balance Sheet', to: '/reports/balance-sheet', icon: Sheet },
-];
+function buildNav(cfg) {
+  return [
+    { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
+    { section: 'Sales' },
+    { label: 'Invoicing / Sales', to: '/invoicing', icon: FileText },
+    { label: 'Purchasing', to: '/purchasing', icon: ShoppingCart },
+    { section: 'Registers' },
+    { label: 'Customers', to: '/customers', icon: Users },
+    { label: cfg.suppliersLabel, to: '/companies', icon: Building2 },
+    { label: 'Cities / Areas', to: '/cities', icon: MapPin },
+    { label: `${cfg.productsLabel} / Inventory`, to: '/inventory', icon: Package },
+    ...(cfg.showOfferLists ? [{ label: cfg.offerListsLabel, to: '/offer-lists', icon: Tag }] : []),
+    { section: 'Ledgers' },
+    { label: 'Customer Ledger', to: '/ledger/customer', icon: BookOpen },
+    { label: `${cfg.supplierLabel} Ledger`, to: '/ledger/company', icon: BookMarked },
+    { section: 'Accounting' },
+    { label: 'Cash Book', to: '/cash-book', icon: DollarSign },
+    { label: 'Bank Accounts', to: '/bank-accounts', icon: Landmark },
+    { label: 'Bank Ledger', to: '/ledger/bank', icon: Landmark },
+    { label: 'Payroll', to: '/payroll', icon: UserCheck },
+    { label: 'Chart of Accounts', to: '/chart-of-accounts', icon: Layers },
+    { section: 'Reports' },
+    { label: 'Profit & Loss', to: '/reports', icon: BarChart2 },
+    { label: 'Party Balance', to: '/reports/party-balance', icon: FileSpreadsheet },
+    { label: 'Trial Balance', to: '/reports/trial-balance', icon: Scale },
+    { label: 'Balance Sheet', to: '/reports/balance-sheet', icon: Sheet },
+  ];
+}
 
 // Bottom nav items for phone view
 const BOTTOM_NAV = [
@@ -50,9 +53,12 @@ const BOTTOM_NAV = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const cfg = useBusinessConfig();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const NAV = buildNav(cfg);
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -102,7 +108,7 @@ export default function Layout() {
             </div>
             <div>
               <h1>{user?.businessName || 'Medical Store'}</h1>
-              <span>Wholesale Management</span>
+              <span>{cfg.subtitle}</span>
             </div>
           </div>
         </div>
