@@ -107,7 +107,7 @@ export default function Layout() {
               +
             </div>
             <div>
-              <h1>{user?.businessName || 'Medical Store'}</h1>
+              <h1>{user?.businessName || 'StoreOS'}</h1>
               <span>{cfg.subtitle}</span>
             </div>
           </div>

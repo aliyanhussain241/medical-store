@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import useDebounce from '../utils/useDebounce';
 import toast from 'react-hot-toast';
 import { Search, Plus, Trash2, FileDown, Printer, Tag, Lock, Eye, X, CheckCircle, Landmark, Pencil, Key } from 'lucide-react';
+import { useBusinessConfig } from '../context/BusinessConfigContext';
 
 function pkr(v) {
   return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
@@ -46,6 +47,7 @@ function getOfferBadgeClass(type) {
 
 export default function Invoicing() {
   const { user } = useAuth();
+  const cfg = useBusinessConfig();
   const qc = useQueryClient();
 
   // Invoicing states
@@ -176,7 +178,8 @@ export default function Invoicing() {
     let discount = 0;
     let schemeUnits = 0;
 
-    if (offer) {
+    // Skip offer auto-application when business type doesn't use offer lists
+    if (offer && cfg.showOfferLists) {
       if (offer.offerType === 'PERCENTAGE') {
         discount = parseFloat(offer.offerValue || 0);
         toast.success(`Applied ${offer.offerLabel} offer discount for ${p.productName}`);
@@ -749,7 +752,8 @@ export default function Invoicing() {
                 </div>
               </div>
 
-              {/* Default Pricing Mode Selector for POS Workflow */}
+              {/* Default Pricing Mode Selector — hidden when business type uses only one mode */}
+              {cfg.showPricingModes && (
               <div
                 style={{
                   marginTop: 10,
@@ -817,6 +821,7 @@ export default function Invoicing() {
                   <span className="text-muted text-xs">New line items will default to Retail</span>
                 </div>
               </div>
+              )}
             </div>
           </div>
 
@@ -989,8 +994,8 @@ export default function Invoicing() {
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Product & Packing</th>
-                    <th style={{ width: 105 }}>Mode</th>
+                    <th>Product &amp; Packing</th>
+                    {cfg.showPricingModes && <th style={{ width: 105 }}>Mode</th>}
                     <th className="num" style={{ width: 65 }}>
                       Qty
                     </th>
@@ -1003,28 +1008,19 @@ export default function Invoicing() {
                     <th className="num" style={{ width: 65 }}>
                       Disc %
                     </th>
-                    <th className="num" style={{ width: 55 }}>
-                      ST/U
-                    </th>
-                    <th className="num" style={{ width: 55 }}>
-                      Free Pcs
-                    </th>
-                    <th className="num" style={{ width: 85 }}>
-                      Net Total
-                    </th>
+                    {cfg.showSchemeFields && (
+                      <>
+                        <th className="num" style={{ width: 55 }}>ST/U</th>
+                        <th className="num" style={{ width: 55 }}>Free Pcs</th>
+                      </>
+                    )}
+                    <th className="num" style={{ width: 85 }}>Net Total</th>
                     <th style={{ width: 35 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={10}
-                        style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}
-                      >
-                        Search and add products above
-                      </td>
-                    </tr>
+                    <tr><td colSpan={cfg.showPricingModes ? (cfg.showSchemeFields ? 10 : 8) : (cfg.showSchemeFields ? 9 : 7)} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>Search and add products above</td></tr>
                   ) : (
                     items.map((item, idx) => {
                       const qty = parseFloat(item.qty) || 0;
@@ -1108,7 +1104,8 @@ export default function Invoicing() {
                             )}
                           </td>
 
-                          {/* Pricing Mode Selector: TP | Retail | Net */}
+                          {/* Pricing Mode Selector — hidden for non-pharmacy businesses */}
+                          {cfg.showPricingModes && (
                           <td>
                             <select
                               id={`item-mode-${idx}`}
@@ -1140,6 +1137,7 @@ export default function Invoicing() {
                               <option value="NET" title="Net (Custom)">N</option>
                             </select>
                           </td>
+                          )}
 
                           {/* Quantity (PKT) — Prominent with auto-select & clear focus halo */}
                           <td className="num">
@@ -1302,33 +1300,35 @@ export default function Invoicing() {
                             />
                           </td>
 
-                          {/* Scheme/Bonus Units (ST/U) */}
-                          <td className="num">
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              className="form-input tabular"
-                              style={{ width: 45, padding: '4px 6px', textAlign: 'center' }}
-                              value={item.schemeUnits || ''}
-                              placeholder="0"
-                              onChange={(e) => updateItem(idx, 'schemeUnits', e.target.value)}
-                            />
-                          </td>
-
-                          {/* Free Pieces (PCS) */}
-                          <td className="num">
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              className="form-input tabular"
-                              style={{ width: 45, padding: '4px 6px', textAlign: 'center' }}
-                              value={item.freePcs || ''}
-                              placeholder="0"
-                              onChange={(e) => updateItem(idx, 'freePcs', e.target.value)}
-                            />
-                          </td>
+                          {/* Scheme/Bonus Units (ST/U) and Free Pieces — pharmacy only */}
+                          {cfg.showSchemeFields && (
+                            <>
+                              <td className="num">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  className="form-input tabular"
+                                  style={{ width: 45, padding: '4px 6px', textAlign: 'center' }}
+                                  value={item.schemeUnits || ''}
+                                  placeholder="0"
+                                  onChange={(e) => updateItem(idx, 'schemeUnits', e.target.value)}
+                                />
+                              </td>
+                              <td className="num">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  className="form-input tabular"
+                                  style={{ width: 45, padding: '4px 6px', textAlign: 'center' }}
+                                  value={item.freePcs || ''}
+                                  placeholder="0"
+                                  onChange={(e) => updateItem(idx, 'freePcs', e.target.value)}
+                                />
+                              </td>
+                            </>
+                          )}
 
                           {/* Net Total */}
                           <td className="num tabular" style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
@@ -1488,6 +1488,8 @@ export default function Invoicing() {
                           </div>
                         </div>
 
+                        {/* Pricing Mode — hidden for single-mode business types */}
+                        {cfg.showPricingModes && (
                         <div>
                           <label style={{ fontSize: 11, fontWeight: 700, color: '#1E293B' }}>PRICING MODE</label>
                           <select
@@ -1501,6 +1503,7 @@ export default function Invoicing() {
                             <option value="NET" title="Net (Custom)">N — Net (Custom)</option>
                           </select>
                         </div>
+                        )}
                       </div>
 
                       {/* Row 2: Unit Price & Discount */}

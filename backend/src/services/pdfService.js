@@ -110,14 +110,14 @@ function generateInvoicePDF(invoice, user) {
     const tableW = 555;
 
     // Header: Business Name & City
-    const bizName = (user.businessName || 'RAHMAT MEDICAL WHOLESALE').toUpperCase();
-    const bizCity = (user.city || 'BHIRYA CITY').toUpperCase();
-    const bizAddr = user.address || 'Main Bazar, Bhirya City';
+    const bizName = (user.businessName || 'MY STORE').toUpperCase();
+    const bizCity = (user.city || '').toUpperCase();
+    const bizAddr = user.address || '';
 
     doc.fontSize(14).font('Helvetica-Bold').fillColor('#000000')
-      .text(`${bizName}, ${bizCity}`, marginL, 20, { align: 'center', width: tableW });
+      .text(bizCity ? `${bizName}, ${bizCity}` : bizName, marginL, 20, { align: 'center', width: tableW });
     doc.fontSize(8.5).font('Helvetica').fillColor('#444444')
-      .text(bizAddr, marginL, 36, { align: 'center', width: tableW });
+      .text(bizAddr || ' ', marginL, 36, { align: 'center', width: tableW });
 
     doc.moveTo(marginL, 48).lineTo(marginL + tableW, 48).strokeColor('#333333').lineWidth(1).stroke();
 

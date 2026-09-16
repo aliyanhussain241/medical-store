@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI, productsAPI, purchasesAPI, bankAccountsAPI } from '../api/services';
 import toast from 'react-hot-toast';
 import { Plus, Search, Trash2, X, DollarSign, Landmark } from 'lucide-react';
+import { useBusinessConfig } from '../context/BusinessConfigContext';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function calcLine(qty, price, disc) {
@@ -792,6 +793,7 @@ export default function Purchasing() {
 }
 
 function QuickAddProductModal({ form, setForm, companies = [], onClose, onSave, loading }) {
+  const cfg = useBusinessConfig();
   const set = (k) => (e) => setForm((prev) => ({ ...prev, [k]: e.target.value }));
 
   return (
@@ -862,6 +864,7 @@ function QuickAddProductModal({ form, setForm, companies = [], onClose, onSave, 
                 onChange={set('unit')}
               />
             </div>
+            {cfg.showPacking && (
             <div className="form-group">
               <label className="form-label">Packing Details</label>
               <input
@@ -871,6 +874,7 @@ function QuickAddProductModal({ form, setForm, companies = [], onClose, onSave, 
                 onChange={set('packing')}
               />
             </div>
+            )}
             <div className="form-group">
               <label className="form-label">Pieces per Pack</label>
               <input

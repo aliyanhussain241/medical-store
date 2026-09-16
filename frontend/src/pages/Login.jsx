@@ -36,8 +36,8 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <h1>Medical Store</h1>
-          <p>Wholesale Management System</p>
+          <h1>StoreOS</h1>
+          <p>Store &amp; Wholesale Management</p>
         </div>
 
         <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>

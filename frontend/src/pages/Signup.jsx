@@ -45,7 +45,7 @@ export default function Signup() {
       <div className="auth-card" style={{ maxWidth: 520 }}>
         <div className="auth-logo">
           <h1>Create Account</h1>
-          <p>Wholesale Management System</p>
+          <p>StoreOS — Store &amp; Wholesale Management</p>
         </div>
 
         <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
