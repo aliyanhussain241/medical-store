@@ -185,6 +185,14 @@ export default function Layout() {
           <MoreHorizontal size={20} />
           More
         </button>
+        <button
+          className="bottom-nav-item"
+          onClick={handleLogout}
+          style={{ color: 'var(--alert, #ef4444)' }}
+        >
+          <LogOut size={20} />
+          Logout
+        </button>
       </nav>
     </div>
   );
