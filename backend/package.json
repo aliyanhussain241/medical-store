@@ -7,8 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "prisma generate",
-    "postinstall": "prisma generate",
+    "build": "prisma db push --skip-generate && prisma generate",
+    "postinstall": "prisma db push --skip-generate && prisma generate",
     "db:migrate": "node node_modules/prisma/build/index.js migrate dev",
     "db:generate": "node node_modules/prisma/build/index.js generate",
     "db:push": "node node_modules/prisma/build/index.js db push",
