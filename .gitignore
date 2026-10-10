@@ -26,7 +26,6 @@ desktop/backend/public/
 desktop/backend/src/
 desktop/prisma/template.db
 desktop/template.db
-desktop/scripts/build.js
 
 # Logs
 *.log
