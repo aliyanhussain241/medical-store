@@ -9,6 +9,7 @@ import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, MapPin } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge, EmptyState, TableSkeleton } from '../components/ui';
 
 const PAGE_SIZE = 25;
 
@@ -84,22 +85,43 @@ export default function Cities() {
 
   const cities = data?.data || [];
 
+  const totalCities = data?.total || cities.length;
+
   return (
     <div>
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Cities / Areas</h2>
-          <p className="text-muted text-sm" style={{ marginTop: 4 }}>
-            Manage the list of cities and regions used for categorizing customers and ledgers.
-          </p>
-        </div>
-        <button id="add-city-btn" className="btn btn-primary" onClick={openAdd}>
-          <Plus size={14} /> Add City
-        </button>
-      </div>
+      <PageHeader
+        title="Cities / Areas"
+        subtitle="Geographic territory grouping and customer route management"
+        actions={
+          <button id="add-city-btn" className="btn btn-brand" onClick={openAdd}>
+            <Plus size={14} /> Add City
+          </button>
+        }
+      />
 
-      <div className="search-bar">
-        <div className="search-input-wrap">
+      <KpiGrid cols={2}>
+        <KpiCard
+          icon={MapPin}
+          iconBg="#EFF6FF"
+          iconColor="#1B4B91"
+          borderColor="#1B4B91"
+          badge="Regions"
+          value={totalCities}
+          subtitle="Configured delivery sectors and cities"
+        />
+        <KpiCard
+          icon={MapPin}
+          iconBg="#ECFDF5"
+          iconColor="#0F6E4F"
+          borderColor="#0F6E4F"
+          badge="Active"
+          value={cities.length}
+          subtitle="Available in customer address dropdowns"
+        />
+      </KpiGrid>
+
+      <div className="app-filter-bar">
+        <div className="app-filter-search-wrap">
           <Search size={14} />
           <input
             id="city-search"
@@ -110,10 +132,12 @@ export default function Cities() {
             onChange={handleSearch}
           />
         </div>
-        <span className="text-muted">{data?.total || cities.length} cities</span>
+        <span className="text-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
+          <strong>{data?.total || cities.length}</strong> cities
+        </span>
       </div>
 
-      <div className="card">
+      <div className="app-table-card">
         <div className="data-table-wrap" style={{ border: 'none' }}>
           <table className="data-table">
             <thead>
@@ -126,16 +150,20 @@ export default function Cities() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: 32 }}>
-                    <div className="spinner" style={{ margin: 'auto' }} />
-                  </td>
-                </tr>
+                <TableSkeleton rows={5} cols={4} />
               ) : cities.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                    <MapPin size={32} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
-                    <p>No cities found. Click &quot;Add City&quot; to create one.</p>
+                  <td colSpan={4}>
+                    <EmptyState
+                      icon={MapPin}
+                      title="No cities found"
+                      description="Create cities or areas to group customers and filter ledger reports."
+                      action={
+                        <button className="btn btn-brand btn-sm" onClick={openAdd}>
+                          <Plus size={13} /> Add First City
+                        </button>
+                      }
+                    />
                   </td>
                 </tr>
               ) : (

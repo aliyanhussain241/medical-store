@@ -8,8 +8,9 @@ import { customersAPI, citiesAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
-import { Plus, Search, Pencil, Trash2, X, Users, User, MapPin, DollarSign } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Users, User, MapPin, DollarSign, Wallet } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge, EmptyState, TableSkeleton } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 
@@ -112,17 +113,56 @@ export default function Customers() {
 
   const customers = data?.data || [];
 
+  const totalCustomers = data?.total || customers.length;
+  const totalReceivable = customers.reduce((s, c) => {
+    const bal = parseFloat(c.currentBalance ?? c.balance ?? 0);
+    return s + (bal > 0 ? bal : 0);
+  }, 0);
+
   return (
     <div>
-      <div className="page-header">
-        <h2 className="page-title">Customers</h2>
-        <button id="add-customer-btn" className="btn btn-primary" onClick={openAdd}>
-          <Plus size={14} /> Add Customer
-        </button>
-      </div>
+      <PageHeader
+        title="Customers"
+        subtitle="Wholesale buyer directory, credit balances & area routing"
+        actions={
+          <button id="add-customer-btn" className="btn btn-brand" onClick={openAdd}>
+            <Plus size={14} /> Add Customer
+          </button>
+        }
+      />
 
-      <div className="search-bar">
-        <div className="search-input-wrap">
+      <KpiGrid cols={3}>
+        <KpiCard
+          icon={Users}
+          iconBg="#ECFDF5"
+          iconColor="#0F6E4F"
+          borderColor="#0F6E4F"
+          badge="Accounts"
+          value={totalCustomers}
+          subtitle="Total wholesale customers"
+        />
+        <KpiCard
+          icon={MapPin}
+          iconBg="#EFF6FF"
+          iconColor="#1B4B91"
+          borderColor="#1B4B91"
+          badge="Routes"
+          value={existingAreas.length}
+          subtitle="Unique delivery areas / cities"
+        />
+        <KpiCard
+          icon={Wallet}
+          iconBg="#FEF2F2"
+          iconColor="#B4372B"
+          borderColor="#B4372B"
+          badge="Outstanding"
+          value={pkr(totalReceivable)}
+          subtitle="Total market receivables"
+        />
+      </KpiGrid>
+
+      <div className="app-filter-bar">
+        <div className="app-filter-search-wrap">
           <Search size={14} />
           <input
             id="customer-search"
@@ -133,10 +173,12 @@ export default function Customers() {
             onChange={handleSearch}
           />
         </div>
-        <span className="text-muted">{data?.total || 0} customers</span>
+        <span className="text-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
+          <strong>{data?.total || 0}</strong> customers
+        </span>
       </div>
 
-      <div className="card">
+      <div className="app-table-card">
         <div className="data-table-wrap" style={{ border: 'none' }}>
           <table className="data-table">
             <thead>
@@ -154,40 +196,22 @@ export default function Customers() {
             </thead>
             <tbody>
               {isLoading ? (
-                [1, 2, 3, 4, 5].map((idx) => (
-                  <tr key={idx}>
-                    <td><div className="skeleton skeleton-text" style={{ width: 42 }} /></td>
-                    <td><div className="skeleton skeleton-text" style={{ width: 140 }} /></td>
-                    <td><div className="skeleton skeleton-text" style={{ width: 85 }} /></td>
-                    <td><div className="skeleton skeleton-text" style={{ width: 100 }} /></td>
-                    <td><div className="skeleton skeleton-text" style={{ width: 90 }} /></td>
-                    <td><div className="skeleton skeleton-text" style={{ width: 120 }} /></td>
-                    <td className="num"><div className="skeleton skeleton-text" style={{ width: 60, marginLeft: 'auto' }} /></td>
-                    <td className="num"><div className="skeleton skeleton-text" style={{ width: 60, marginLeft: 'auto' }} /></td>
-                    <td><div className="skeleton skeleton-text" style={{ width: 50 }} /></td>
-                  </tr>
-                ))
+                <TableSkeleton rows={6} cols={9} />
               ) : customers.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: 0 }}>
-                    <div className="empty-state-box">
-                      <div className="empty-state-icon-wrap">
-                        <Users size={24} />
-                      </div>
-                      <div className="empty-state-title">
-                        {search ? 'No matching customers found' : 'No customers added yet'}
-                      </div>
-                      <div className="empty-state-desc">
-                        {search
-                          ? `No customer records match "${search}". Try searching by code, area, or name.`
-                          : 'Add your first wholesale customer to start creating invoices and recording ledger transactions.'}
-                      </div>
-                      {!search && (
-                        <button className="btn btn-primary btn-sm" onClick={openAdd}>
+                  <td colSpan={9}>
+                    <EmptyState
+                      icon={Users}
+                      title={search ? 'No matching customers found' : 'No customers added yet'}
+                      description={search
+                        ? `No customer records match "${search}". Try searching by code, area, or name.`
+                        : 'Add your first wholesale customer to start creating invoices and recording ledger transactions.'}
+                      action={!search && (
+                        <button className="btn btn-brand btn-sm" onClick={openAdd}>
                           <Plus size={13} /> Add First Customer
                         </button>
                       )}
-                    </div>
+                    />
                   </td>
                 </tr>
               ) : (

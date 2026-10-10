@@ -9,9 +9,10 @@ import { companiesAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
-import { Plus, Search, Pencil, Trash2, X } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Building2, Wallet } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
 import { useBusinessConfig } from '../context/BusinessConfigContext';
+import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge, EmptyState, TableSkeleton } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 const EMPTY = { companyName: '', contactPerson: '', phone: '', address: '', openingBalance: '', town: '', sector: '', cnic: '' };
@@ -77,22 +78,63 @@ export default function Companies() {
 
   const companies = data?.data || [];
 
+  const totalCompanies = data?.total || companies.length;
+  const totalPayable = companies.reduce((s, c) => {
+    const bal = parseFloat(c.currentBalance || 0);
+    return s + (bal > 0 ? bal : 0);
+  }, 0);
+
   return (
     <div>
-      <div className="page-header">
-        <h2 className="page-title">{cfg.suppliersLabel}</h2>
-        <button id="add-company-btn" className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Add {cfg.supplierLabel}</button>
-      </div>
+      <PageHeader
+        title={cfg.suppliersLabel}
+        subtitle="Pharmaceutical manufacturers, distributors & supplier credit ledgers"
+        actions={
+          <button id="add-company-btn" className="btn btn-brand" onClick={openAdd}>
+            <Plus size={14} /> Add {cfg.supplierLabel}
+          </button>
+        }
+      />
 
-      <div className="search-bar">
-        <div className="search-input-wrap">
+      <KpiGrid cols={2}>
+        <KpiCard
+          icon={Building2}
+          iconBg="#EEF2FF"
+          iconColor="#4F46E5"
+          borderColor="#4F46E5"
+          badge="Suppliers"
+          value={totalCompanies}
+          subtitle={`Total registered ${cfg.suppliersLabel.toLowerCase()}`}
+        />
+        <KpiCard
+          icon={Wallet}
+          iconBg="#FEF2F2"
+          iconColor="#B4372B"
+          borderColor="#B4372B"
+          badge="Total Payable"
+          value={pkr(totalPayable)}
+          subtitle="Outstanding distributor liabilities"
+        />
+      </KpiGrid>
+
+      <div className="app-filter-bar">
+        <div className="app-filter-search-wrap">
           <Search size={14} />
-          <input id="company-search" type="text" className="form-input" placeholder="Search by name, contact, phone..." value={search} onChange={handleSearch} />
+          <input
+            id="company-search"
+            type="text"
+            className="form-input"
+            placeholder="Search by name, contact, phone..."
+            value={search}
+            onChange={handleSearch}
+          />
         </div>
-        <span className="text-muted">{data?.total || 0} {cfg.suppliersLabel.toLowerCase()}</span>
+        <span className="text-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
+          <strong>{data?.total || 0}</strong> {cfg.suppliersLabel.toLowerCase()}
+        </span>
       </div>
 
-      <div className="card">
+      <div className="app-table-card">
         <div className="data-table-wrap" style={{ border: 'none' }}>
           <table className="data-table">
             <thead>
@@ -108,9 +150,22 @@ export default function Companies() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                <TableSkeleton rows={6} cols={7} />
               ) : companies.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No {cfg.suppliersLabel.toLowerCase()} found</td></tr>
+                <tr>
+                  <td colSpan={7}>
+                    <EmptyState
+                      icon={Building2}
+                      title={`No ${cfg.suppliersLabel.toLowerCase()} found`}
+                      description={`Add your first ${cfg.supplierLabel.toLowerCase()} to record purchases and supplier ledgers.`}
+                      action={
+                        <button className="btn btn-brand btn-sm" onClick={openAdd}>
+                          <Plus size={13} /> Add First {cfg.supplierLabel}
+                        </button>
+                      }
+                    />
+                  </td>
+                </tr>
               ) : companies.map((c) => (
                 <tr key={c.id}>
                   <td style={{ fontWeight: 600 }}>{c.companyName}</td>

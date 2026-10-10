@@ -10,9 +10,10 @@ import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
 import {
   Plus, Search, FileDown, Printer, Eye, Edit2, Trash2,
-  Tag, X, Check, CheckCircle2, XCircle, AlertCircle
+  Tag, X, Check, CheckCircle2, XCircle, AlertCircle, Building2
 } from 'lucide-react';
 import { handleEnterNext } from '../utils/keyboardNav';
+import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge, EmptyState, TableSkeleton } from '../components/ui';
 
 function fmtDate(d) {
   return d ? new Date(d).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -313,65 +314,76 @@ export default function OfferLists() {
   return (
     <div>
       {/* ── Page Header ──────────────────────────────────────────── */}
-      <div className="page-header">
-        <h2 className="page-title">Offer Lists</h2>
-        <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={() => openCreateModal()}>
+      <PageHeader
+        title="Offer Lists"
+        subtitle="Promotions, manufacturer schemes, bonuses and net-rate lists"
+        actions={
+          <button className="btn btn-brand" onClick={() => openCreateModal()}>
             <Plus size={14} /> Create Offer List
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── KPI Summary Cards ────────────────────────────────────── */}
-      <div className="kpi-grid">
-        <div className="kpi-card brand">
-          <div className="kpi-label">Active Lists</div>
-          <div className="kpi-value">{activeLists}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Total Lists</div>
-          <div className="kpi-value">{totalLists}</div>
-        </div>
-        <div className="kpi-card accent">
-          <div className="kpi-label">Suppliers with Offers</div>
-          <div className="kpi-value">
-            {new Set(lists.flatMap((l) => l.items || []).map((i) => i.companyId)).size || companies.length}
-          </div>
-        </div>
-      </div>
+      <KpiGrid cols={3}>
+        <KpiCard
+          icon={CheckCircle2}
+          iconBg="#ECFDF5"
+          iconColor="#0F6E4F"
+          borderColor="#0F6E4F"
+          badge="Active"
+          value={activeLists}
+          subtitle="Currently active promotion lists"
+        />
+        <KpiCard
+          icon={Tag}
+          iconBg="#EFF6FF"
+          iconColor="#1B4B91"
+          borderColor="#1B4B91"
+          badge="Total"
+          value={totalLists}
+          subtitle="All registered offer lists"
+        />
+        <KpiCard
+          icon={Building2}
+          iconBg="#EEF2FF"
+          iconColor="#4F46E5"
+          borderColor="#4F46E5"
+          badge="Suppliers"
+          value={new Set(lists.flatMap((l) => l.items || []).map((i) => i.companyId)).size || companies.length}
+          subtitle="Companies with active promotions"
+        />
+      </KpiGrid>
 
       {/* ── Search & Filter Bar ──────────────────────────────────── */}
-      <div className="card card-body" style={{ marginBottom: 14 }}>
-        <div className="flex gap-12" style={{ flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="Search by list number or remarks..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            />
-          </div>
-          <div style={{ width: 160 }}>
-            <select
-              className="form-select"
-              value={activeFilter}
-              onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}
-            >
-              <option value="">All Statuses</option>
-              <option value="true">Active Only</option>
-              <option value="false">Inactive Only</option>
-            </select>
-          </div>
+      <div className="app-filter-bar">
+        <div className="app-filter-search-wrap">
+          <Search size={14} />
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Search by list number or remarks..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          />
         </div>
+        <select
+          className="form-select"
+          style={{ width: 170 }}
+          value={activeFilter}
+          onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}
+        >
+          <option value="">All Statuses</option>
+          <option value="true">Active Only</option>
+          <option value="false">Inactive Only</option>
+        </select>
+        <span className="text-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
+          <strong>{totalLists}</strong> lists
+        </span>
       </div>
 
       {/* ── Offer Lists Table ────────────────────────────────────── */}
-      <div className="card">
-        <div className="card-header">
-          <span>Registered Offer Lists</span>
-          <span className="text-muted text-sm">{totalLists} total</span>
-        </div>
+      <div className="app-table-card">
         <div className="data-table-wrap" style={{ border: 'none' }}>
           <table className="data-table">
             <thead>
@@ -387,11 +399,15 @@ export default function OfferLists() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                <TableSkeleton rows={6} cols={7} />
               ) : lists.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                    No offer lists found. Click "+ Create Offer List" to add company discount offers.
+                  <td colSpan={7}>
+                    <EmptyState
+                      icon={Tag}
+                      title="No offer lists found"
+                      description="Click '+ Create Offer List' to configure company discount schemes."
+                    />
                   </td>
                 </tr>
               ) : lists.map((l) => (
@@ -406,26 +422,12 @@ export default function OfferLists() {
                   <td className="num tabular">{l.itemCount || 0}</td>
                   <td>
                     <button
+                      type="button"
                       onClick={() => toggleMutation.mutate(l.id)}
-                      className="btn-icon"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                       title={l.isActive ? 'Active (Click to deactivate)' : 'Inactive (Click to activate)'}
-                      style={{
-                        padding: '3px 8px',
-                        borderRadius: 12,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        border: '1px solid',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 4,
-                        background: l.isActive ? '#DCFCE7' : '#F3F4F6',
-                        color: l.isActive ? '#166534' : '#6B7280',
-                        borderColor: l.isActive ? '#BBF7D0' : '#E5E7EB',
-                        cursor: 'pointer',
-                      }}
                     >
-                      {l.isActive ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-                      {l.isActive ? 'ACTIVE' : 'INACTIVE'}
+                      <PillBadge variant={l.isActive ? 'ACTIVE' : 'INACTIVE'} />
                     </button>
                   </td>
                   <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>

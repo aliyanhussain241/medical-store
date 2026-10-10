@@ -10,9 +10,10 @@ import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import ImportExcelModal from '../components/ImportExcelModal';
 import toast from 'react-hot-toast';
-import { Plus, Search, Pencil, Trash2, X, AlertTriangle, FileSpreadsheet, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, AlertTriangle, FileSpreadsheet, ArrowUpDown, Package, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
 import { useBusinessConfig } from '../context/BusinessConfigContext';
+import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge, EmptyState, TableSkeleton } from '../components/ui';
 
 const PAGE_SIZE = 25;
 
@@ -111,22 +112,69 @@ export default function Inventory() {
     + (cfg.showExpiryDate ? 1 : 0)
     + (cfg.showTradePrice ? 1 : 0);
 
+  const totalCount = data?.total || products.length;
+  const inStockCount = products.filter(p => parseFloat(p.stockQty) > 0).length;
+  const lowStockCount = products.filter(p => p.isLowStock).length;
+  const nearExpiryCount = products.filter(p => p.isNearExpiry || p.isExpired).length;
+
   return (
     <div>
-      <div className="page-header">
-        <h2 className="page-title">{cfg.productsLabel} / Inventory</h2>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button id="import-excel-btn" className="btn btn-outline" onClick={() => setImportOpen(true)}>
-            <FileSpreadsheet size={14} /> Import Excel
-          </button>
-          <button id="add-product-btn" className="btn btn-primary" onClick={openAdd}>
-            <Plus size={14} /> Add {cfg.productLabel}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title={`${cfg.productsLabel} / Inventory`}
+        subtitle="Medicine stock levels, batches, expiry tracking & catalog"
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button id="import-excel-btn" className="btn btn-outline" onClick={() => setImportOpen(true)}>
+              <FileSpreadsheet size={14} /> Import Excel
+            </button>
+            <button id="add-product-btn" className="btn btn-brand" onClick={openAdd}>
+              <Plus size={14} /> Add {cfg.productLabel}
+            </button>
+          </div>
+        }
+      />
 
-      <div className="search-bar">
-        <div className="search-input-wrap">
+      <KpiGrid cols={4}>
+        <KpiCard
+          icon={Package}
+          iconBg="#ECFDF5"
+          iconColor="#0F6E4F"
+          borderColor="#0F6E4F"
+          badge="Catalog"
+          value={totalCount}
+          subtitle={`Total ${cfg.productsLabel.toLowerCase()} registered`}
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          iconBg="#EFF6FF"
+          iconColor="#1B4B91"
+          borderColor="#1B4B91"
+          badge="Available"
+          value={inStockCount}
+          subtitle="Products currently in stock"
+        />
+        <KpiCard
+          icon={AlertTriangle}
+          iconBg="#FEF3C7"
+          iconColor="#D97706"
+          borderColor="#D97706"
+          badge="Attention"
+          value={lowStockCount}
+          subtitle="Below reorder alert limit"
+        />
+        <KpiCard
+          icon={Clock}
+          iconBg="#FEF2F2"
+          iconColor="#B4372B"
+          borderColor="#B4372B"
+          badge="Expiry"
+          value={nearExpiryCount}
+          subtitle="Near expiry or expired"
+        />
+      </KpiGrid>
+
+      <div className="app-filter-bar">
+        <div className="app-filter-search-wrap">
           <Search size={14} />
           <input
             id="product-search"
@@ -137,15 +185,17 @@ export default function Inventory() {
             onChange={handleSearch}
           />
         </div>
-        <select className="form-select" style={{ width: 160 }} value={filter} onChange={handleFilterChange} id="product-filter">
+        <select className="form-select" style={{ width: 170 }} value={filter} onChange={handleFilterChange} id="product-filter">
           <option value="all">All {cfg.productsLabel}</option>
           <option value="lowStock">⚠ Low Stock</option>
           {cfg.showNearExpiryFilter && <option value="nearExpiry">⏰ Near Expiry</option>}
         </select>
-        <span className="text-muted">{data?.total || 0} {cfg.productsLabel.toLowerCase()}</span>
+        <span className="text-muted" style={{ fontSize: 12, marginLeft: 'auto' }}>
+          <strong>{data?.total || 0}</strong> {cfg.productsLabel.toLowerCase()}
+        </span>
       </div>
 
-      <div className="card">
+      <div className="app-table-card">
         <div className="data-table-wrap" style={{ border: 'none' }}>
           <table className="data-table">
             <thead>
@@ -164,9 +214,16 @@ export default function Inventory() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={colCount} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                <TableSkeleton rows={8} cols={colCount} />
               ) : products.length === 0 ? (
-                <tr><td colSpan={colCount} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No {cfg.productsLabel.toLowerCase()} found</td></tr>
+                <tr>
+                  <td colSpan={colCount}>
+                    <EmptyState
+                      title={`No ${cfg.productsLabel.toLowerCase()} found`}
+                      description="Try searching with a different keyword or add a new product."
+                    />
+                  </td>
+                </tr>
               ) : products.map((p) => (
                 <tr key={p.id} style={{ background: p.isLowStock ? '#FFF9F9' : undefined }}>
                   <td style={{ fontWeight: 600 }}>
