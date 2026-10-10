@@ -3,23 +3,19 @@
 // ─────────────────────────────────────────────────────────────
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { customersAPI, ledgerAPI, invoicesAPI, exportAPI, downloadBlob, citiesAPI } from '../api/services';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { customersAPI, ledgerAPI, exportAPI, downloadBlob, citiesAPI } from '../api/services';
 import toast from 'react-hot-toast';
-import { FileDown, DollarSign, X } from 'lucide-react';
-import { invoicesAPI as inv } from '../api/services';
+import { FileDown, Users, TrendingUp, TrendingDown, Wallet, BookOpen, Calendar, MapPin } from 'lucide-react';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK') : '—'; }
 
 export default function CustomerLedger() {
-  const qc = useQueryClient();
   const [areaFilter, setAreaFilter] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [payModal, setPayModal] = useState(false);
-  const [payAmount, setPayAmount] = useState('');
 
   const { data: custData } = useQuery({
     queryKey: ['customers-all'],
@@ -46,13 +42,6 @@ export default function CustomerLedger() {
     enabled: !!customerId,
   });
 
-  const payMutation = useMutation({
-    mutationFn: ({ amount }) => inv.recordPayment
-      ? Promise.reject('use invoice payment') // payments handled via invoice payment
-      : Promise.resolve(),
-    onError: () => {},
-  });
-
   async function exportDoc(fmt) {
     if (!customerId) return;
     try {
@@ -70,29 +59,39 @@ export default function CustomerLedger() {
   const selectedCustomer = customers.find((c) => c.id === customerId);
 
   return (
-    <div>
-      <div className="page-header">
-        <h2 className="page-title">Customer Ledger</h2>
-        {customerId && (
-          <div className="flex gap-8">
-            <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')}><FileDown size={13} /> PDF</button>
-            <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')}><FileDown size={13} /> Excel</button>
-          </div>
-        )}
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Customer Ledger"
+        subtitle="Track customer debits, credits, running balance, and statement exports"
+        badge={selectedCustomer ? selectedCustomer.customerName : undefined}
+        badgeVariant="brand"
+        actions={
+          customerId && (
+            <div className="flex gap-2">
+              <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')} title="Export PDF">
+                <FileDown size={14} /> PDF
+              </button>
+              <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')} title="Export Excel">
+                <FileDown size={14} /> Excel
+              </button>
+            </div>
+          )
+        }
+      />
 
-      {/* Filters */}
-      <div className="card card-body mb-12" style={{ marginBottom: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, alignItems: 'flex-end' }}>
+      {/* Filters Card */}
+      <div className="app-filter-bar">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, alignItems: 'flex-end', width: '100%' }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">City / Area Filter</label>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <MapPin size={12} /> City / Area Filter
+            </label>
             <select
               id="cl-area"
-              className="form-select"
+              className="form-select text-sm"
               value={areaFilter}
               onChange={(e) => {
                 setAreaFilter(e.target.value);
-                // If current customer doesn't belong to newly selected area, reset
                 if (e.target.value) {
                   const cust = customers.find((c) => c.id === customerId);
                   if (cust && (cust.area || '').toLowerCase() !== e.target.value.toLowerCase()) {
@@ -107,9 +106,17 @@ export default function CustomerLedger() {
               ))}
             </select>
           </div>
+
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Customer *</label>
-            <select id="cl-customer" className="form-select" value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Users size={12} /> Customer *
+            </label>
+            <select
+              id="cl-customer"
+              className="form-select text-sm font-medium"
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+            >
               <option value="">— Select Customer ({filteredCustomers.length}) —</option>
               {filteredCustomers.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -118,94 +125,141 @@ export default function CustomerLedger() {
               ))}
             </select>
           </div>
+
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">From Date</label>
-            <input id="cl-from" type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Calendar size={12} /> From Date
+            </label>
+            <input id="cl-from" type="date" className="form-input text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
           </div>
+
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">To Date</label>
-            <input id="cl-to" type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} />
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Calendar size={12} /> To Date
+            </label>
+            <input id="cl-to" type="date" className="form-input text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
       </div>
 
       {/* Summary KPIs */}
       {customerId && summary.closingBalance !== undefined && (
-        <div className="kpi-grid" style={{ marginBottom: 14 }}>
-          <div className="kpi-card">
-            <div className="kpi-label">Total Debit (Dr)</div>
-            <div className="kpi-value color-alert tabular">{pkr(summary.totalDebit)}</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label">Total Credit (Cr)</div>
-            <div className="kpi-value color-brand tabular">{pkr(summary.totalCredit)}</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-label">Closing Balance</div>
-            <div className={`kpi-value tabular ${parseFloat(summary.closingBalance) > 0 ? 'color-alert' : 'color-brand'}`}>
-              {pkr(summary.closingBalance)}
-            </div>
-          </div>
-          {selectedCustomer && (
-            <div className="kpi-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div className="kpi-label">{selectedCustomer.customerName}</div>
-                <div className="text-muted text-sm">{selectedCustomer.phone || '—'}</div>
-              </div>
-            </div>
-          )}
-        </div>
+        <KpiGrid cols={4}>
+          <KpiCard
+            title="Total Debit (Dr)"
+            value={pkr(summary.totalDebit)}
+            caption="Invoiced sales & charges"
+            icon={TrendingUp}
+            accentColor="rose"
+            badge="DEBIT"
+          />
+          <KpiCard
+            title="Total Credit (Cr)"
+            value={pkr(summary.totalCredit)}
+            caption="Customer payments received"
+            icon={TrendingDown}
+            accentColor="emerald"
+            badge="CREDIT"
+          />
+          <KpiCard
+            title="Closing Balance"
+            value={pkr(summary.closingBalance)}
+            caption={parseFloat(summary.closingBalance) > 0 ? 'Receivable from customer' : 'Customer credit balance'}
+            icon={Wallet}
+            accentColor={parseFloat(summary.closingBalance) > 0 ? 'rose' : 'emerald'}
+            badge={parseFloat(summary.closingBalance) > 0 ? 'DR DUE' : 'CR ADV'}
+          />
+          <KpiCard
+            title="Customer Details"
+            value={selectedCustomer?.customerName || 'Selected'}
+            caption={`${selectedCustomer?.phone || 'No phone'} · ${selectedCustomer?.area || 'No area'}`}
+            icon={Users}
+            accentColor="brand"
+            badge={selectedCustomer?.customerCode || 'PARTY'}
+          />
+        </KpiGrid>
       )}
 
       {/* Transactions Table */}
-      {customerId && (
-        <div className="card">
-          <div className="card-header">
-            <span>Ledger Transactions</span>
-            <span className="text-muted text-sm">{transactions.length} entries</span>
+      {customerId ? (
+        <div className="app-table-card">
+          <div className="flex items-center justify-between p-3 border-b border-border bg-subtle">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm">Statement Ledger</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-surface-alt font-medium text-muted">
+                {transactions.length} entries
+              </span>
+            </div>
+            {selectedCustomer && (
+              <span className="text-xs text-muted font-medium">
+                Showing ledger for {selectedCustomer.customerName}
+              </span>
+            )}
           </div>
-          <div className="data-table-wrap" style={{ border: 'none' }}>
+
+          <div className="overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Date</th>
+                  <th style={{ width: 110 }}>Date</th>
                   <th>Description</th>
-                  <th>Ref Type</th>
-                  <th className="num">Debit (Dr)</th>
-                  <th className="num">Credit (Cr)</th>
-                  <th className="num">Running Balance</th>
+                  <th style={{ width: 110 }}>Ref Type</th>
+                  <th className="num" style={{ width: 140 }}>Debit (Dr)</th>
+                  <th className="num" style={{ width: 140 }}>Credit (Cr)</th>
+                  <th className="num" style={{ width: 150 }}>Running Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading ? (
-                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                  <TableSkeleton cols={6} rows={6} />
                 ) : transactions.length === 0 ? (
-                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No transactions found for this customer</td></tr>
-                ) : transactions.map((t) => (
-                  <tr key={t.id}>
-                    <td>{fmtDate(t.transactionDate)}</td>
-                    <td>{t.description}</td>
-                    <td><span className="badge badge-brand" style={{ fontSize: 10 }}>{t.referenceType}</span></td>
-                    <td className="num tabular" style={{ color: parseFloat(t.debit) > 0 ? 'var(--alert)' : 'var(--text-muted)' }}>
-                      {parseFloat(t.debit) > 0 ? pkr(t.debit) : '—'}
-                    </td>
-                    <td className="num tabular" style={{ color: parseFloat(t.credit) > 0 ? 'var(--paid)' : 'var(--text-muted)' }}>
-                      {parseFloat(t.credit) > 0 ? pkr(t.credit) : '—'}
-                    </td>
-                    <td className="num tabular" style={{ fontWeight: 600, color: parseFloat(t.runningBalance) > 0 ? 'var(--alert)' : 'var(--brand)' }}>
-                      {pkr(t.runningBalance)}
+                  <tr>
+                    <td colSpan={6} style={{ padding: 0 }}>
+                      <EmptyState
+                        icon={BookOpen}
+                        title="No transactions found"
+                        description="There are no debit or credit transactions recorded for this customer in the selected date range."
+                      />
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  transactions.map((t) => {
+                    const dr = parseFloat(t.debit) || 0;
+                    const cr = parseFloat(t.credit) || 0;
+                    const bal = parseFloat(t.runningBalance) || 0;
+                    return (
+                      <tr key={t.id}>
+                        <td className="text-sm font-medium">{fmtDate(t.transactionDate)}</td>
+                        <td className="text-sm">{t.description}</td>
+                        <td>
+                          <span className="badge badge-brand text-xs font-semibold tracking-wider">
+                            {t.referenceType}
+                          </span>
+                        </td>
+                        <td className="num tabular font-semibold" style={{ color: dr > 0 ? 'var(--alert)' : 'var(--text-muted)' }}>
+                          {dr > 0 ? pkr(dr) : '—'}
+                        </td>
+                        <td className="num tabular font-semibold" style={{ color: cr > 0 ? 'var(--paid)' : 'var(--text-muted)' }}>
+                          {cr > 0 ? pkr(cr) : '—'}
+                        </td>
+                        <td className="num tabular font-bold" style={{ color: bal > 0 ? 'var(--alert)' : 'var(--brand)' }}>
+                          {pkr(bal)}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
-      )}
-
-      {!customerId && (
-        <div className="empty-state">
-          <p>Select a customer above to view their ledger</p>
+      ) : (
+        <div className="app-table-card p-8">
+          <EmptyState
+            icon={BookOpen}
+            title="Select a Customer"
+            description="Choose a city/area and customer from the filters above to inspect their real-time ledger statement."
+          />
         </div>
       )}
     </div>
