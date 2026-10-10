@@ -35,7 +35,7 @@ function generateRefreshToken(user) {
 
 function safeUser(user) {
   const { passwordHash, ...safe } = user;
-  return safe;
+  return { ...safe, businessType: 'PHARMACY' };
 }
 
 // ── POST /api/auth/signup ─────────────────────────────────────
