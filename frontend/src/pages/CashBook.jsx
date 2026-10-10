@@ -7,8 +7,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { cashBookAPI, exportAPI, downloadBlob, accountHeadsAPI } from '../api/services';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
-import { FileDown, Plus, X, Receipt } from 'lucide-react';
+import { FileDown, Plus, X, Receipt, ArrowDownLeft, ArrowUpRight, Wallet, Calendar } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; }
@@ -84,162 +85,213 @@ export default function CashBook() {
   const entryTypeLabel = form.category === 'EXPENSE' ? 'Cash Expense' : (parseFloat(form.cashIn) > 0 ? 'Receipt (MCR)' : (parseFloat(form.cashOut) > 0 ? 'Payment (MCP)' : '—'));
 
   return (
-    <div>
-      <div className="page-header">
-        <h2 className="page-title">Cash Book</h2>
-        <div className="flex gap-8" style={{ flexWrap: 'wrap' }}>
-          <button
-            id="record-expense-btn"
-            className="btn btn-sm"
-            style={{
-              background: '#dc2626',
-              color: '#ffffff',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              boxShadow: '0 2px 6px rgba(220, 38, 38, 0.25)',
-            }}
-            onClick={() => {
-              setForm({
-                transactionDate: new Date().toISOString().split('T')[0],
-                description: '',
-                partyName: '',
-                cashIn: '',
-                cashOut: '',
-                category: 'EXPENSE',
-                accountHeadId: accountHeads.find((h) => h.category === 'EXPENSE')?.id || '',
-              });
-              setModal(true);
-            }}
-          >
-            <Receipt size={14} /> <span className="lbl">+ Record</span> Expense
-          </button>
-          <button className="btn btn-primary btn-sm" onClick={() => {
-            setForm({
-              transactionDate: new Date().toISOString().split('T')[0],
-              description: '',
-              partyName: '',
-              cashIn: '',
-              cashOut: '',
-              category: '',
-              accountHeadId: '',
-            });
-            setModal(true);
-          }}><Plus size={13} /> <span className="lbl">Add</span> Entry</button>
-          <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')}><FileDown size={13} /> PDF</button>
-          <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')}><FileDown size={13} /> Excel</button>
-        </div>
-      </div>
-
-      {/* Date filter */}
-      <div className="card card-body" style={{ marginBottom: 14 }}>
-        <div className="date-filter-row">
-          <div className="form-group">
-            <label className="form-label">From</label>
-            <input id="cb-from" type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
+    <div className="space-y-4">
+      <PageHeader
+        title="Cash Book"
+        subtitle="Daily cash journal recording receipts, expenses, vendor payments, and closing cash in hand"
+        badge="DAILY REGISTER"
+        badgeVariant="brand"
+        actions={
+          <div className="flex gap-2 flex-wrap">
+            <button
+              id="record-expense-btn"
+              className="btn btn-sm"
+              style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 1px 3px rgba(220, 38, 38, 0.3)',
+              }}
+              onClick={() => {
+                setForm({
+                  transactionDate: new Date().toISOString().split('T')[0],
+                  description: '',
+                  partyName: '',
+                  cashIn: '',
+                  cashOut: '',
+                  category: 'EXPENSE',
+                  accountHeadId: accountHeads.find((h) => h.category === 'EXPENSE')?.id || '',
+                });
+                setModal(true);
+              }}
+            >
+              <Receipt size={14} /> + Record Expense
+            </button>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                setForm({
+                  transactionDate: new Date().toISOString().split('T')[0],
+                  description: '',
+                  partyName: '',
+                  cashIn: '',
+                  cashOut: '',
+                  category: '',
+                  accountHeadId: '',
+                });
+                setModal(true);
+              }}
+            >
+              <Plus size={14} /> Add Entry
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')} title="Export PDF">
+              <FileDown size={14} /> PDF
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')} title="Export Excel">
+              <FileDown size={14} /> Excel
+            </button>
           </div>
-          <div className="form-group">
-            <label className="form-label">To</label>
-            <input id="cb-to" type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} />
+        }
+      />
+
+      {/* Date filter bar */}
+      <div className="app-filter-bar">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'flex-end', width: '100%' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Calendar size={12} /> From Date
+            </label>
+            <input id="cb-from" type="date" className="form-input text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Calendar size={12} /> To Date
+            </label>
+            <input id="cb-to" type="date" className="form-input text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
       </div>
 
       {/* Summary KPIs */}
-      <div className="kpi-grid" style={{ marginBottom: 14 }}>
-        <div className="kpi-card">
-          <div className="kpi-label">Opening Balance</div>
-          <div className="kpi-value tabular">{pkr(openingBalance)}</div>
-        </div>
-        <div className="kpi-card brand">
-          <div className="kpi-label">Total Receipts</div>
-          <div className="kpi-value tabular">{pkr(summary.totalIn)}</div>
-        </div>
-        <div className="kpi-card alert">
-          <div className="kpi-label">Total Payments</div>
-          <div className="kpi-value tabular">{pkr(summary.totalOut)}</div>
-        </div>
-        <div className="kpi-card brand">
-          <div className="kpi-label">Closing Balance</div>
-          <div className={`kpi-value tabular ${closingBalance < 0 ? 'color-alert' : 'color-brand'}`}>{pkr(closingBalance)}</div>
-        </div>
-      </div>
+      <KpiGrid cols={4}>
+        <KpiCard
+          title="Opening Balance"
+          value={pkr(openingBalance)}
+          caption={`As of ${from ? fmtDate(from) : 'start'}`}
+          icon={Wallet}
+          accentColor="slate"
+          badge="START"
+        />
+        <KpiCard
+          title="Total Receipts"
+          value={pkr(summary.totalIn)}
+          caption="Cash collections & inflows"
+          icon={ArrowDownLeft}
+          accentColor="emerald"
+          badge="RECEIPTS"
+        />
+        <KpiCard
+          title="Total Payments"
+          value={pkr(summary.totalOut)}
+          caption="Disbursements & expenses"
+          icon={ArrowUpRight}
+          accentColor="rose"
+          badge="PAYMENTS"
+        />
+        <KpiCard
+          title="Closing Balance"
+          value={pkr(closingBalance)}
+          caption={closingBalance >= 0 ? 'Cash in hand available' : 'Negative cash balance'}
+          icon={Wallet}
+          accentColor={closingBalance >= 0 ? 'emerald' : 'rose'}
+          badge={closingBalance >= 0 ? 'NET CASH' : 'DEFICIT'}
+        />
+      </KpiGrid>
 
       {/* Cash Book Table — DATE | DETAIL | RECEIPTS | PAYMENTS | BALANCE */}
-      <div className="card">
-        <div className="card-header">
-          Cash Book Entries
-          <span className="text-muted text-sm">{entries.length} entries</span>
+      <div className="app-table-card">
+        <div className="flex items-center justify-between p-3 border-b border-border bg-subtle">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">Cash Journal Entries</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-alt font-medium text-muted">
+              {data?.total || entries.length} entries
+            </span>
+          </div>
+          <span className="text-xs text-muted font-medium">
+            Page {page} of {Math.ceil((data?.total || 1) / PAGE_SIZE)}
+          </span>
         </div>
-        <div className="data-table-wrap" style={{ border: 'none' }}>
+
+        <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
-                <th style={{ width: 80 }}>Date</th>
+                <th style={{ width: 110 }}>Date</th>
                 <th>Detail</th>
-                <th className="num" style={{ width: 100 }}>Receipts</th>
-                <th className="num" style={{ width: 100 }}>Payments</th>
-                <th className="num" style={{ width: 110 }}>Balance</th>
+                <th className="num" style={{ width: 130 }}>Receipts</th>
+                <th className="num" style={{ width: 130 }}>Payments</th>
+                <th className="num" style={{ width: 140 }}>Balance</th>
               </tr>
             </thead>
             <tbody>
               {/* Opening Balance row */}
-              <tr style={{ background: '#F5F5F0', fontWeight: 600 }}>
-                <td>{from ? fmtDate(from) : '—'}</td>
-                <td style={{ fontStyle: 'italic' }}>Opening Balance</td>
-                <td className="num tabular">—</td>
-                <td className="num tabular">—</td>
-                <td className="num tabular" style={{ fontWeight: 700, color: 'var(--brand)' }}>{pkr(openingBalance)}</td>
+              <tr style={{ background: 'var(--subtle, #f8fafc)', fontWeight: 600 }}>
+                <td className="text-sm font-medium">{from ? fmtDate(from) : '—'}</td>
+                <td style={{ fontStyle: 'italic', color: 'var(--text-muted)' }}>Opening Balance Brought Forward</td>
+                <td className="num tabular text-muted">—</td>
+                <td className="num tabular text-muted">—</td>
+                <td className="num tabular font-bold" style={{ color: 'var(--brand)' }}>{pkr(openingBalance)}</td>
               </tr>
 
               {isLoading ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                <TableSkeleton cols={5} rows={6} />
               ) : entries.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No cash book entries for this period</td></tr>
-              ) : entries.map((e) => {
-                const cashIn = parseFloat(e.cashIn);
-                const cashOut = parseFloat(e.cashOut);
-                return (
-                  <tr key={e.id}>
-                    <td>{fmtDate(e.transactionDate)}</td>
-                    <td>
-                      {/* Line 1: Description / reference */}
-                      <div style={{ fontSize: 12, lineHeight: 1.4 }}>{e.description}</div>
-                      {/* Line 2: Sequence + Party Name */}
-                      {e.partyName && (
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#333', marginTop: 1 }}>
-                          {e.seq} {e.partyName}
-                        </div>
-                      )}
-                    </td>
-                    <td className="num tabular" style={{ color: cashIn > 0 ? 'var(--paid)' : 'var(--text-muted)', fontWeight: cashIn > 0 ? 600 : 400 }}>
-                      {cashIn > 0 ? pkr(cashIn) : '—'}
-                    </td>
-                    <td className="num tabular" style={{ color: cashOut > 0 ? 'var(--alert)' : 'var(--text-muted)', fontWeight: cashOut > 0 ? 600 : 400 }}>
-                      {cashOut > 0 ? pkr(cashOut) : '—'}
-                    </td>
-                    <td className="num tabular" style={{ fontWeight: 600, color: parseFloat(e.runningBalance) < 0 ? 'var(--alert)' : 'var(--brand)' }}>
-                      {pkr(e.runningBalance)}
-                    </td>
-                  </tr>
-                );
-              })}
+                <tr>
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState
+                      icon={Wallet}
+                      title="No cash book entries"
+                      description="No receipts or cash payment transactions found for this date range."
+                    />
+                  </td>
+                </tr>
+              ) : (
+                entries.map((e) => {
+                  const cashIn = parseFloat(e.cashIn) || 0;
+                  const cashOut = parseFloat(e.cashOut) || 0;
+                  const bal = parseFloat(e.runningBalance) || 0;
+                  return (
+                    <tr key={e.id}>
+                      <td className="text-sm font-medium">{fmtDate(e.transactionDate)}</td>
+                      <td>
+                        <div className="text-sm font-medium text-text">{e.description}</div>
+                        {e.partyName && (
+                          <div className="text-xs font-semibold text-muted mt-0.5">
+                            {e.seq ? `${e.seq} ` : ''}{e.partyName}
+                          </div>
+                        )}
+                      </td>
+                      <td className="num tabular font-semibold" style={{ color: cashIn > 0 ? 'var(--paid)' : 'var(--text-muted)' }}>
+                        {cashIn > 0 ? pkr(cashIn) : '—'}
+                      </td>
+                      <td className="num tabular font-semibold" style={{ color: cashOut > 0 ? 'var(--alert)' : 'var(--text-muted)' }}>
+                        {cashOut > 0 ? pkr(cashOut) : '—'}
+                      </td>
+                      <td className="num tabular font-bold" style={{ color: bal < 0 ? 'var(--alert)' : 'var(--brand)' }}>
+                        {pkr(bal)}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
 
               {/* Totals row */}
               {entries.length > 0 && (
-                <tr style={{ background: '#222', color: '#fff', fontWeight: 700 }}>
+                <tr style={{ background: '#1e293b', color: '#fff', fontWeight: 700 }}>
                   <td></td>
-                  <td style={{ color: '#fff' }}>TOTAL</td>
-                  <td className="num tabular" style={{ color: '#fff' }}>{pkr(summary.totalIn)}</td>
-                  <td className="num tabular" style={{ color: '#fff' }}>{pkr(summary.totalOut)}</td>
+                  <td style={{ color: '#fff' }}>TOTAL FOR PERIOD</td>
+                  <td className="num tabular" style={{ color: '#34d399' }}>{pkr(summary.totalIn)}</td>
+                  <td className="num tabular" style={{ color: '#f87171' }}>{pkr(summary.totalOut)}</td>
                   <td className="num tabular" style={{ color: '#fff' }}>{pkr(closingBalance)}</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
-        <div style={{ padding: '0 16px' }}>
+        <div className="p-3 border-t border-border">
           <Pagination page={page} total={data?.total || 0} limit={PAGE_SIZE} onPageChange={setPage} />
         </div>
       </div>

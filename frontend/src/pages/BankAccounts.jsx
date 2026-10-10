@@ -8,8 +8,9 @@ import { bankAccountsAPI } from '../api/services';
 import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import toast from 'react-hot-toast';
-import { Plus, Search, Pencil, Trash2, X, Landmark } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Landmark, Wallet, CheckCircle2 } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 const EMPTY = { bankName: '', accountTitle: '', accountNumber: '', branch: '', openingBalance: '' };
@@ -67,24 +68,80 @@ export default function BankAccounts() {
   }, [modal]);
 
   const accounts = data?.data || [];
+  const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.currentBalance) || 0), 0);
 
   return (
-    <div>
-      <div className="page-header">
-        <h2 className="page-title">Bank Accounts</h2>
-        <button id="add-bank-btn" className="btn btn-primary" onClick={openAdd}><Plus size={14} /> Add Bank Account</button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Bank Accounts"
+        subtitle="Manage company bank accounts, deposit channels, account numbers, and current balances"
+        actions={
+          <button id="add-bank-btn" className="btn btn-primary" onClick={openAdd}>
+            <Plus size={14} /> Add Bank Account
+          </button>
+        }
+      />
 
-      <div className="search-bar">
-        <div className="search-input-wrap">
-          <Search size={14} />
-          <input id="bank-search" type="text" className="form-input" placeholder="Search by bank name, account title, account number..." value={search} onChange={handleSearch} />
+      {/* KPI Cards */}
+      <KpiGrid cols={3}>
+        <KpiCard
+          title="Bank Accounts"
+          value={data?.total ?? accounts.length}
+          caption="Active checking & saving accounts"
+          icon={Landmark}
+          accentColor="brand"
+          badge="REGISTERED"
+        />
+        <KpiCard
+          title="Total Bank Liquidity"
+          value={pkr(totalBalance)}
+          caption="Aggregate current bank balances"
+          icon={Wallet}
+          accentColor={totalBalance >= 0 ? 'emerald' : 'rose'}
+          badge={totalBalance >= 0 ? 'LIQUID' : 'OVERDRAWN'}
+        />
+        <KpiCard
+          title="Banking Status"
+          value="Operational"
+          caption="All linked channels active"
+          icon={CheckCircle2}
+          accentColor="blue"
+          badge="HEALTHY"
+        />
+      </KpiGrid>
+
+      {/* Search / Filter Bar */}
+      <div className="app-filter-bar">
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', width: '100%', flexWrap: 'wrap' }}>
+          <div className="search-input-wrap" style={{ flex: '1 1 280px', minWidth: 240 }}>
+            <Search size={14} />
+            <input
+              id="bank-search"
+              type="text"
+              className="form-input text-sm"
+              placeholder="Search by bank name, account title, account number..."
+              value={search}
+              onChange={handleSearch}
+            />
+          </div>
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-surface-alt text-muted ml-auto">
+            {data?.total || accounts.length} accounts found
+          </span>
         </div>
-        <span className="text-muted">{data?.total || 0} accounts</span>
       </div>
 
-      <div className="card">
-        <div className="data-table-wrap" style={{ border: 'none' }}>
+      {/* Table Card */}
+      <div className="app-table-card">
+        <div className="flex items-center justify-between p-3 border-b border-border bg-subtle">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">Configured Bank Accounts</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-alt font-medium text-muted">
+              {accounts.length} showing
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -92,60 +149,64 @@ export default function BankAccounts() {
                 <th>Account Title</th>
                 <th>Account Number</th>
                 <th>Branch</th>
-                <th className="num">Opening Balance</th>
-                <th className="num">Current Balance</th>
-                <th>Actions</th>
+                <th className="num" style={{ width: 140 }}>Opening Balance</th>
+                <th className="num" style={{ width: 140 }}>Current Balance</th>
+                <th style={{ width: 90 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <tr key={i} className="skeleton-row">
-                    <td><div className="skeleton-cell" style={{ width: '70%' }} /></td>
-                    <td><div className="skeleton-cell" style={{ width: '80%' }} /></td>
-                    <td><div className="skeleton-cell" style={{ width: '60%' }} /></td>
-                    <td><div className="skeleton-cell" style={{ width: '40%' }} /></td>
-                    <td><div className="skeleton-cell" style={{ width: '50%' }} /></td>
-                    <td><div className="skeleton-cell" style={{ width: '50%' }} /></td>
-                    <td><div className="skeleton-cell" style={{ width: '30%' }} /></td>
-                  </tr>
-                ))
+                <TableSkeleton cols={7} rows={4} />
               ) : accounts.length === 0 ? (
-                <tr><td colSpan={7}>
-                  <div className="empty-state-box">
-                    <div className="empty-state-icon-wrap"><Landmark size={24} /></div>
-                    <div className="empty-state-title">No bank accounts yet</div>
-                    <div className="empty-state-desc">Add your first bank account to start tracking payments through banking channels.</div>
-                    <button className="btn btn-primary btn-sm" onClick={openAdd}><Plus size={14} /> Add Bank Account</button>
-                  </div>
-                </td></tr>
-              ) : accounts.map((a) => (
-                <tr key={a.id}>
-                  <td style={{ fontWeight: 600 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Landmark size={14} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                      {a.bankName}
-                    </div>
-                  </td>
-                  <td>{a.accountTitle}</td>
-                  <td className="tabular" style={{ fontFamily: 'monospace', fontSize: 12 }}>{a.accountNumber}</td>
-                  <td className="text-muted text-sm">{a.branch || '—'}</td>
-                  <td className="num tabular">{pkr(a.openingBalance)}</td>
-                  <td className="num tabular" style={{ color: parseFloat(a.currentBalance) >= 0 ? 'var(--paid)' : 'var(--alert)', fontWeight: 600 }}>
-                    {pkr(a.currentBalance)}
-                  </td>
-                  <td>
-                    <div className="flex gap-8">
-                      <button className="btn-icon" onClick={() => openEdit(a)}><Pencil size={13} /></button>
-                      <button className="btn-icon" onClick={() => setDelId(a.id)} style={{ color: 'var(--alert)' }}><Trash2 size={13} /></button>
-                    </div>
+                <tr>
+                  <td colSpan={7} style={{ padding: 0 }}>
+                    <EmptyState
+                      icon={Landmark}
+                      title="No bank accounts found"
+                      description="Add your first company bank account to start recording transactions and deposits."
+                      actionLabel="+ Add Bank Account"
+                      onAction={openAdd}
+                    />
                   </td>
                 </tr>
-              ))}
+              ) : (
+                accounts.map((a) => {
+                  const currBal = parseFloat(a.currentBalance) || 0;
+                  return (
+                    <tr key={a.id}>
+                      <td style={{ fontWeight: 600 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Landmark size={14} style={{ color: 'var(--brand)' }} />
+                          </div>
+                          <span>{a.bankName}</span>
+                        </div>
+                      </td>
+                      <td className="text-sm font-medium">{a.accountTitle}</td>
+                      <td className="tabular text-xs font-mono font-medium">{a.accountNumber}</td>
+                      <td className="text-muted text-xs">{a.branch || '—'}</td>
+                      <td className="num tabular font-medium text-muted">{pkr(a.openingBalance)}</td>
+                      <td className="num tabular font-bold" style={{ color: currBal >= 0 ? 'var(--paid)' : 'var(--alert)' }}>
+                        {pkr(currBal)}
+                      </td>
+                      <td>
+                        <div className="flex gap-2">
+                          <button className="btn-icon" onClick={() => openEdit(a)} title="Edit Account">
+                            <Pencil size={13} />
+                          </button>
+                          <button className="btn-icon" onClick={() => setDelId(a.id)} style={{ color: 'var(--alert)' }} title="Delete Account">
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-        <div style={{ padding: '0 16px' }}>
+        <div className="p-3 border-t border-border">
           <Pagination page={page} total={data?.total || 0} limit={PAGE_SIZE} onPageChange={setPage} />
         </div>
       </div>
@@ -154,38 +215,42 @@ export default function BankAccounts() {
         <div className="modal-overlay" onClick={closeModal}>
           <div
             className="modal"
+            style={{ maxWidth: 480 }}
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => handleFormEnterKey(e, () => { if (form.bankName && form.accountNumber) saveMutation.mutate(form); })}
           >
             <div className="modal-header">
-              <span>{modal === 'add' ? 'Add Bank Account' : 'Edit Bank Account'}</span>
-              <button className="btn-icon" onClick={closeModal}><X size={14} /></button>
+              <div className="flex items-center gap-2">
+                <Landmark size={16} className="text-brand" />
+                <span className="font-semibold text-base">{modal === 'add' ? 'Add Bank Account' : 'Edit Bank Account'}</span>
+              </div>
+              <button className="btn-icon" onClick={closeModal}><X size={15} /></button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body space-y-3">
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Bank Name *</label>
-                  <input id="bank-name" className="form-input" value={form.bankName} onChange={set('bankName')} placeholder="e.g. HBL, Meezan Bank" required />
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Bank Name *</label>
+                  <input id="bank-name" className="form-input text-sm" value={form.bankName} onChange={set('bankName')} placeholder="e.g. HBL, Meezan Bank" required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Account Title *</label>
-                  <input id="bank-title" className="form-input" value={form.accountTitle} onChange={set('accountTitle')} placeholder="Account holder name" />
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Account Title *</label>
+                  <input id="bank-title" className="form-input text-sm" value={form.accountTitle} onChange={set('accountTitle')} placeholder="Account holder name" />
                 </div>
               </div>
               <div className="grid-2">
                 <div className="form-group">
-                  <label className="form-label">Account Number *</label>
-                  <input id="bank-number" className="form-input" value={form.accountNumber} onChange={set('accountNumber')} placeholder="e.g. 1234-5678901234" />
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Account Number *</label>
+                  <input id="bank-number" className="form-input text-sm font-mono" value={form.accountNumber} onChange={set('accountNumber')} placeholder="e.g. 1234-5678901234" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Branch</label>
-                  <input id="bank-branch" className="form-input" value={form.branch} onChange={set('branch')} placeholder="Optional" />
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Branch</label>
+                  <input id="bank-branch" className="form-input text-sm" value={form.branch} onChange={set('branch')} placeholder="Branch name / code" />
                 </div>
               </div>
               <div className="form-group">
-                <label className="form-label">Opening Balance (Rs)</label>
-                <input id="bank-ob" type="number" step="0.01" className="form-input" value={form.openingBalance} onChange={set('openingBalance')} disabled={!!editId} />
-                {editId && <span className="form-hint">Opening balance cannot be changed after creation.</span>}
+                <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Opening Balance (Rs)</label>
+                <input id="bank-ob" type="number" step="0.01" className="form-input text-sm tabular font-semibold" value={form.openingBalance} onChange={set('openingBalance')} disabled={!!editId} />
+                {editId && <span className="form-hint text-xs text-muted mt-1 block">Opening balance cannot be changed after creation.</span>}
               </div>
             </div>
             <div className="modal-footer">
@@ -201,9 +266,14 @@ export default function BankAccounts() {
 
       {delId && (
         <div className="modal-overlay" onClick={() => setDelId(null)}>
-          <div className="modal" style={{ maxWidth: 380 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">Confirm Delete</div>
-            <div className="modal-body"><p style={{ fontSize: 13 }}>Delete this bank account? This cannot be undone.</p></div>
+          <div className="modal" style={{ maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="font-semibold text-base">Confirm Delete</span>
+              <button className="btn-icon" onClick={() => setDelId(null)}><X size={15} /></button>
+            </div>
+            <div className="modal-body">
+              <p className="text-sm text-muted">Are you sure you want to delete this bank account? This cannot be undone.</p>
+            </div>
             <div className="modal-footer">
               <button className="btn btn-outline" onClick={() => setDelId(null)}>Cancel</button>
               <button className="btn btn-danger" disabled={deleteMutation.isPending} onClick={() => deleteMutation.mutate(delId)}>
