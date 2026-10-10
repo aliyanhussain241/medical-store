@@ -1,21 +1,14 @@
 // ─────────────────────────────────────────────────────────────
 // src/context/BusinessConfigContext.jsx
-// Provides business-type configuration via useBusinessConfig()
-// Reads user.businessType from AuthContext automatically
+// Always returns Wholesale Medical / Pharmacy config.
 // ─────────────────────────────────────────────────────────────
-import { createContext, useContext, useMemo } from 'react';
-import { useAuth } from './AuthContext';
+import { createContext, useContext } from 'react';
 import { getBusinessConfig } from '../config/businessConfig';
 
-const BusinessConfigContext = createContext(null);
+const cfg = getBusinessConfig();
+const BusinessConfigContext = createContext(cfg);
 
 export function BusinessConfigProvider({ children }) {
-  const { user } = useAuth();
-  const cfg = useMemo(
-    () => getBusinessConfig(user?.businessType || 'PHARMACY'),
-    [user?.businessType]
-  );
-
   return (
     <BusinessConfigContext.Provider value={cfg}>
       {children}
@@ -24,8 +17,5 @@ export function BusinessConfigProvider({ children }) {
 }
 
 export function useBusinessConfig() {
-  const ctx = useContext(BusinessConfigContext);
-  // Fallback for usage outside provider (e.g., login/signup pages)
-  if (!ctx) return getBusinessConfig('PHARMACY');
-  return ctx;
+  return useContext(BusinessConfigContext) || cfg;
 }

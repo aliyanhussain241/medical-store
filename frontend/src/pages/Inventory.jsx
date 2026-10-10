@@ -10,7 +10,7 @@ import useDebounce from '../utils/useDebounce';
 import Pagination from '../components/Pagination';
 import ImportExcelModal from '../components/ImportExcelModal';
 import toast from 'react-hot-toast';
-import { Plus, Search, Pencil, Trash2, X, AlertTriangle, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, AlertTriangle, FileSpreadsheet, ArrowUpDown } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
 import { useBusinessConfig } from '../context/BusinessConfigContext';
 
@@ -194,9 +194,32 @@ export default function Inventory() {
                   </td>
                   <td className="text-muted text-sm">{p.minStockAlert} {p.unit}</td>
                   <td>
-                    <div className="flex gap-8">
-                      <button className="btn-icon btn-sm" onClick={() => { setAdjModal(p); setAdjQty(''); }} title="Adjust Stock" style={{ fontSize: 11, padding: '3px 8px', fontWeight: 600 }}>±Qty</button>
-                      <button className="btn-icon" onClick={() => openEdit(p)}><Pencil size={13} /></button>
+                    <div className="table-actions-group">
+                      <button
+                        className="btn btn-outline btn-sm"
+                        onClick={() => { setAdjModal(p); setAdjQty(''); }}
+                        title="Adjust Stock Quantity"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          padding: '3px 8px',
+                          height: 28,
+                          color: 'var(--brand, #0F6E4F)',
+                          borderColor: 'var(--border, #DADFDB)',
+                          background: '#FFFFFF',
+                          borderRadius: 'var(--radius-sm, 4px)',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <ArrowUpDown size={12} strokeWidth={2.2} />
+                        <span>± Qty</span>
+                      </button>
+                      <button className="btn-icon" onClick={() => openEdit(p)} title="Edit Product">
+                        <Pencil size={13} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -271,7 +294,7 @@ export default function Inventory() {
                 <div className="form-group">
                   <label className="form-label">Stock Quantity</label>
                   <input id="prod-qty" type="number" step="0.001" min="0" className="form-input" value={form.stockQty} onChange={set('stockQty')} disabled={!!editId} />
-                  {editId && <span className="form-hint">Use "±Qty" button to adjust existing stock.</span>}
+                  {editId && <span className="form-hint">Use "± Qty" button to adjust existing stock.</span>}
                 </div>
                 <div className="form-group">
                   <label className="form-label">Low Stock Alert Below</label>

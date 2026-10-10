@@ -74,7 +74,7 @@ export default function Layout() {
   const initials = (user?.ownerName || 'U').split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
 
   const currentNav = NAV.find((n) => n.to === location.pathname);
-  const pageLabel = currentNav?.label || 'Medical Store Wholesale';
+  const pageLabel = currentNav?.label || 'Wholesale Medical Management';
 
   return (
     <div className="app-layout">
@@ -107,7 +107,7 @@ export default function Layout() {
               +
             </div>
             <div>
-              <h1>{user?.businessName || 'StoreOS'}</h1>
+              <h1>{user?.businessName || 'MedStore'}</h1>
               <span>{cfg.subtitle}</span>
             </div>
           </div>

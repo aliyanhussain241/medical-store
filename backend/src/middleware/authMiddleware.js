@@ -5,8 +5,10 @@
 // ─────────────────────────────────────────────────────────────
 const jwt = require('jsonwebtoken');
 
-const DEFAULT_JWT_SECRET = '8f3a2e1d9c7b4f6e0a5d8c2b1f4e7a9d3c6b0e5f8a2d4c7b1e3f6a9d2c5b8e1f4a7d0c3b6e9f2a5d8c1b4e7f0a3d6';
-const getJwtSecret = () => process.env.JWT_SECRET || DEFAULT_JWT_SECRET;
+const getJwtSecret = () => {
+  if (!process.env.JWT_SECRET) throw new Error('FATAL: JWT_SECRET environment variable is required');
+  return process.env.JWT_SECRET;
+};
 
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;

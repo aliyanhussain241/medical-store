@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// src/pages/Signup.jsx
+// src/pages/Signup.jsx — Wholesale Medical Store signup
 // ─────────────────────────────────────────────────────────────
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -7,20 +7,18 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/services';
 import toast from 'react-hot-toast';
 import { handleFormEnterKey } from '../utils/keyboardNav';
-import { BUSINESS_TYPES } from '../config/businessConfig';
 
 export default function Signup() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     businessName: '', ownerName: '', email: '', password: '',
-    phone: '', address: '', businessType: 'PHARMACY',
+    phone: '', address: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   function set(field) { return (e) => setForm({ ...form, [field]: e.target.value }); }
-  function setType(key) { setForm((f) => ({ ...f, businessType: key })); }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -28,7 +26,7 @@ export default function Signup() {
     if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setLoading(true);
     try {
-      const res = await authAPI.signup(form);
+      const res = await authAPI.signup({ ...form, businessType: 'PHARMACY' });
       const { accessToken, refreshToken, user } = res.data;
       login(accessToken, refreshToken, user);
       toast.success('Account created! Welcome.');
@@ -45,7 +43,7 @@ export default function Signup() {
       <div className="auth-card" style={{ maxWidth: 520 }}>
         <div className="auth-logo">
           <h1>Create Account</h1>
-          <p>StoreOS — Store &amp; Wholesale Management</p>
+          <p>Wholesale Medical Store Management</p>
         </div>
 
         <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
@@ -55,51 +53,10 @@ export default function Signup() {
             </div>
           )}
 
-          {/* ── Business Type Picker ───────────────────────── */}
-          <div className="form-group" style={{ marginBottom: 20 }}>
-            <label className="form-label" style={{ marginBottom: 10, display: 'block' }}>
-              Business Type *
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-              {BUSINESS_TYPES.map((bt) => {
-                const active = form.businessType === bt.key;
-                return (
-                  <button
-                    key={bt.key}
-                    type="button"
-                    id={`btype-${bt.key.toLowerCase()}`}
-                    onClick={() => setType(bt.key)}
-                    style={{
-                      border: active ? '2px solid var(--brand, #2563eb)' : '2px solid var(--border, #e5e7eb)',
-                      borderRadius: 10,
-                      padding: '12px 8px',
-                      background: active ? 'var(--brand-light, #eff6ff)' : 'var(--surface, #fff)',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      transition: 'all 0.15s ease',
-                      boxShadow: active ? '0 0 0 3px rgba(37,99,235,0.15)' : 'none',
-                    }}
-                  >
-                    <div style={{ fontSize: 24, lineHeight: 1, marginBottom: 6 }}>{bt.icon}</div>
-                    <div style={{
-                      fontSize: 11, fontWeight: 700, color: active ? 'var(--brand, #2563eb)' : 'var(--text-main, #111)',
-                      lineHeight: 1.3, letterSpacing: '0.01em',
-                    }}>
-                      {bt.label}
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted, #6b7280)', marginTop: 4, lineHeight: 1.3 }}>
-                      {bt.desc}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           <div className="grid-2">
             <div className="form-group">
               <label className="form-label">Business Name *</label>
-              <input id="su-biz" className="form-input" placeholder="Al-Rahmat Wholesale" value={form.businessName} onChange={set('businessName')} required />
+              <input id="su-biz" className="form-input" placeholder="Al-Rahmat Medical Wholesale" value={form.businessName} onChange={set('businessName')} required />
             </div>
             <div className="form-group">
               <label className="form-label">Owner Name *</label>
@@ -109,7 +66,7 @@ export default function Signup() {
 
           <div className="form-group">
             <label className="form-label">Email Address *</label>
-            <input id="su-email" type="email" className="form-input" placeholder="owner@store.com" value={form.email} onChange={set('email')} required />
+            <input id="su-email" type="email" className="form-input" placeholder="owner@medicalstore.com" value={form.email} onChange={set('email')} required />
           </div>
 
           <div className="form-group">

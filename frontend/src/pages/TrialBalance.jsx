@@ -137,12 +137,40 @@ export default function TrialBalance() {
 
       {/* Table */}
       {isLoading ? (
-        <div style={{ padding: 40, textAlign: 'center' }}>
-          <div className="spinner" />
-        </div>
+        <>
+          <div className="kpi-row" style={{ marginBottom: 16 }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} className="kpi-card">
+                <div className="skeleton skeleton-text" style={{ width: '55%', height: 12 }} />
+                <div className="skeleton skeleton-text" style={{ width: '80%', height: 24, marginTop: 8 }} />
+              </div>
+            ))}
+          </div>
+          <div className="card" style={{ padding: 0 }}>
+            <div className="data-table-wrap" style={{ border: 'none' }}>
+              <table className="data-table">
+                <thead><tr><th style={{ width: 40 }}>#</th><th>Account Name</th><th style={{ textAlign: 'right' }}>Debit (Rs)</th><th style={{ textAlign: 'right' }}>Credit (Rs)</th></tr></thead>
+                <tbody>
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i} className="skeleton-row">
+                      <td><div className="skeleton-cell" style={{ width: 20 }} /></td>
+                      <td><div className="skeleton-cell" style={{ width: '70%' }} /></td>
+                      <td><div className="skeleton-cell" style={{ width: '50%', marginLeft: 'auto' }} /></td>
+                      <td><div className="skeleton-cell" style={{ width: '50%', marginLeft: 'auto' }} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       ) : rows.length === 0 ? (
-        <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
-          No data found for the selected date.
+        <div className="card">
+          <div className="empty-state-box">
+            <div className="empty-state-icon-wrap"><Scale size={24} /></div>
+            <div className="empty-state-title">No trial balance data</div>
+            <div className="empty-state-desc">No transactions found for the selected date. Try adjusting the date or add some entries first.</div>
+          </div>
         </div>
       ) : (
         <>

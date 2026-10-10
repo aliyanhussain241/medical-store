@@ -1,135 +1,64 @@
 // ─────────────────────────────────────────────────────────────
 // src/config/businessConfig.js
-// Centralized configuration per business type — drives all
-// conditional UI, terminology, and feature flags.
+// Product lock: PHARMACY (Wholesale Medical) ONLY.
+//
+// To re-enable other business types in future, change:
+//   ENABLED_BUSINESS_TYPES = ['PHARMACY']
+// to include additional types, e.g.:
+//   ENABLED_BUSINESS_TYPES = ['PHARMACY', 'GENERAL_STORE', 'HARDWARE']
 // ─────────────────────────────────────────────────────────────
 
-const BUSINESS_CONFIGS = {
-  // ─── PHARMACY ──────────────────────────────────────────────
-  PHARMACY: {
-    typeKey: 'PHARMACY',
-    label: 'Pharmacy / Medical Store',
-    subtitle: 'Wholesale Management',
+// ── Feature flag: controls which business types are active ────
+// Currently locked to PHARMACY only. Change this one line to unlock others.
+export const ENABLED_BUSINESS_TYPES = ['PHARMACY'];
 
-    // Product fields
-    showBatchNo: true,
-    showExpiryDate: true,
-    showPacking: true,
-    showTradePrice: true,
-    showNearExpiryFilter: true,
+const PHARMACY_CONFIG = {
+  typeKey: 'PHARMACY',
+  label: 'Wholesale Medical Store',
+  subtitle: 'Wholesale Medical Management',
 
-    // Pricing
-    showPricingModes: true,
-    defaultPricingMode: 'RETAIL',
-    pricingModes: [
-      { value: 'TP', label: 'Trade Price', abbr: 'T' },
-      { value: 'RETAIL', label: 'Retail', abbr: 'R' },
-      { value: 'NET', label: 'Net Price', abbr: 'N' },
-    ],
+  // Product fields
+  showBatchNo: true,
+  showExpiryDate: true,
+  showPacking: true,
+  showTradePrice: true,
+  showNearExpiryFilter: true,
 
-    // Features
-    showOfferLists: true,
-    showSchemeFields: true,
-    offerListsLabel: 'Offer Lists',
-    offerListsSingular: 'Offer List',
+  // Pricing
+  showPricingModes: true,
+  defaultPricingMode: 'RETAIL',
+  pricingModes: [
+    { value: 'TP', label: 'Trade Price', abbr: 'T' },
+    { value: 'RETAIL', label: 'Retail', abbr: 'R' },
+    { value: 'NET', label: 'Net Price', abbr: 'N' },
+  ],
 
-    // Terminology
-    productLabel: 'Product',
-    productsLabel: 'Products',
-    supplierLabel: 'Company',
-    suppliersLabel: 'Companies',
-    categoryPlaceholder: 'Antibiotic, Analgesic...',
-    unitOptions: ['strip', 'tablet', 'capsule', 'bottle', 'bag', 'vial', 'box', 'sachet', 'ampule'],
-    defaultUnit: 'strip',
-    costLabel: 'Cost / PP',
-    tradePriceLabel: 'Trade Price (TP)',
-    salePriceLabel: 'Retail / Sale',
-  },
+  // Features
+  showOfferLists: true,
+  showSchemeFields: true,
+  offerListsLabel: 'Offer Lists',
+  offerListsSingular: 'Offer List',
 
-  // ─── GENERAL / GROCERY STORE ────────────────────────────────
-  GENERAL_STORE: {
-    typeKey: 'GENERAL_STORE',
-    label: 'General / Grocery Store',
-    subtitle: 'Store Management',
-
-    showBatchNo: false,
-    showExpiryDate: true,
-    showPacking: false,
-    showTradePrice: false,
-    showNearExpiryFilter: true,
-
-    showPricingModes: false,
-    defaultPricingMode: 'RETAIL',
-    pricingModes: [
-      { value: 'RETAIL', label: 'Sale Price', abbr: 'S' },
-    ],
-
-    showOfferLists: true,
-    showSchemeFields: false,
-    offerListsLabel: 'Promotions',
-    offerListsSingular: 'Promotion',
-
-    productLabel: 'Item',
-    productsLabel: 'Items',
-    supplierLabel: 'Supplier',
-    suppliersLabel: 'Suppliers',
-    categoryPlaceholder: 'Dairy, Beverages, Snacks...',
-    unitOptions: ['piece', 'kg', 'liter', 'pack', 'box', 'bag', 'dozen', 'carton', 'bottle'],
-    defaultUnit: 'piece',
-    costLabel: 'Cost Price',
-    tradePriceLabel: '',
-    salePriceLabel: 'Sale Price',
-  },
-
-  // ─── HARDWARE STORE ─────────────────────────────────────────
-  HARDWARE_STORE: {
-    typeKey: 'HARDWARE_STORE',
-    label: 'Hardware Store',
-    subtitle: 'Store Management',
-
-    showBatchNo: false,
-    showExpiryDate: false,
-    showPacking: false,
-    showTradePrice: false,
-    showNearExpiryFilter: false,
-
-    showPricingModes: false,
-    defaultPricingMode: 'RETAIL',
-    pricingModes: [
-      { value: 'RETAIL', label: 'Sale Price', abbr: 'S' },
-    ],
-
-    showOfferLists: true,
-    showSchemeFields: false,
-    offerListsLabel: 'Promotions',
-    offerListsSingular: 'Promotion',
-
-    productLabel: 'Item',
-    productsLabel: 'Items',
-    supplierLabel: 'Supplier',
-    suppliersLabel: 'Suppliers',
-    categoryPlaceholder: 'Plumbing, Electrical, Tools...',
-    unitOptions: ['piece', 'meter', 'foot', 'kg', 'liter', 'pair', 'set', 'roll', 'box', 'pack'],
-    defaultUnit: 'piece',
-    costLabel: 'Cost Price',
-    tradePriceLabel: '',
-    salePriceLabel: 'Sale Price',
-  },
+  // Terminology
+  productLabel: 'Product',
+  productsLabel: 'Products',
+  supplierLabel: 'Company',
+  suppliersLabel: 'Companies',
+  categoryPlaceholder: 'Antibiotic, Analgesic...',
+  unitOptions: ['strip', 'tablet', 'capsule', 'bottle', 'bag', 'vial', 'box', 'sachet', 'ampule'],
+  defaultUnit: 'strip',
+  costLabel: 'Cost / PP',
+  tradePriceLabel: 'Trade Price (TP)',
+  salePriceLabel: 'Retail / Sale',
 };
 
 /**
- * Get the config for a given business type.
- * Falls back to PHARMACY if unknown type.
+ * Returns the active business config.
+ * Currently always returns PHARMACY_CONFIG since ENABLED_BUSINESS_TYPES = ['PHARMACY'].
+ * Kept as a function for backward compatibility when multi-type support is re-enabled.
  */
-export function getBusinessConfig(businessType) {
-  return BUSINESS_CONFIGS[businessType] || BUSINESS_CONFIGS.PHARMACY;
+export function getBusinessConfig() {
+  return PHARMACY_CONFIG;
 }
 
-/** All available business types (for signup picker) */
-export const BUSINESS_TYPES = [
-  { key: 'PHARMACY', label: 'Pharmacy / Medical Store', icon: '💊', desc: 'Drug distribution, wholesale medical supplies, batch & expiry tracking' },
-  { key: 'GENERAL_STORE', label: 'General / Grocery Store', icon: '🛒', desc: 'Retail & wholesale grocery, FMCG, daily essentials' },
-  { key: 'HARDWARE_STORE', label: 'Hardware Store', icon: '🔧', desc: 'Tools, building materials, plumbing & electrical supplies' },
-];
-
-export default BUSINESS_CONFIGS;
+export default PHARMACY_CONFIG;

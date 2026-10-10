@@ -125,9 +125,26 @@ export default function BalanceSheet() {
       </div>
 
       {isLoading ? (
-        <div style={{ padding: 40, textAlign: 'center' }}>
-          <div className="spinner" />
-        </div>
+        <>
+          <div className="kpi-row" style={{ marginBottom: 16 }}>
+            {[1,2,3].map(i => (
+              <div key={i} className="kpi-card">
+                <div className="skeleton skeleton-text" style={{ width: '55%', height: 12 }} />
+                <div className="skeleton skeleton-text" style={{ width: '80%', height: 24, marginTop: 8 }} />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            {[1,2].map(i => (
+              <div key={i} className="card" style={{ padding: '16px' }}>
+                <div className="skeleton skeleton-text" style={{ width: '40%', height: 16, marginBottom: 12 }} />
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <div key={j} className="skeleton skeleton-text" style={{ height: 18, marginBottom: 8 }} />
+                ))}
+              </div>
+            ))}
+          </div>
+        </>
       ) : (
         <>
           {/* Desktop: Side-by-side panels */}

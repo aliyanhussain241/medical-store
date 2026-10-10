@@ -7,7 +7,7 @@ import api from './client';
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   signup: (data) => api.post('/auth/signup', data),
-  logout: (refreshToken) => api.post('/auth/logout', { refreshToken }),
+  logout: (refreshToken, accessToken) => api.post('/auth/logout', { refreshToken }, accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : {}),
   me: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   changePassword: (data) => api.put('/auth/change-password', data),

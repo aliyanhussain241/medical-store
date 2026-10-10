@@ -1063,6 +1063,17 @@ table td input[type="number"]::-webkit-inner-spin-button {
   height: 22px;
   border-radius: 11px;
 }
+/* Skeleton table rows — drop-in replacement for spinner in table loading states */
+.skeleton-row td {
+  padding: 10px 13px !important;
+}
+.skeleton-cell {
+  height: 16px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #F0F4F1 25%, #E2EAE4 50%, #F0F4F1 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite;
+}
 
 /* ── Loading / empty states ──────────────────────────────────── */
 .loading-row td {
@@ -1125,6 +1136,126 @@ table td input[type="number"]::-webkit-inner-spin-button {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Page content fade-in ────────────────────────────────────── */
+.page-content > div {
+  animation: pageEnter 220ms ease-out;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Global tabular-nums for all monetary / numeric display ─── */
+.tabular,
+.kpi-value,
+.num,
+td.num,
+th.num,
+.pos-total-row span:last-child,
+.pos-total-row .grand span {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Missing utility classes ─────────────────────────────────── */
+.btn-secondary {
+  background: var(--white);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: #F3F6F4;
+  border-color: #CBD5E1;
+}
+
+.action-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+.action-btns .btn-icon.danger {
+  color: var(--alert);
+}
+.action-btns .btn-icon.danger:hover {
+  background: var(--alert-light);
+  border-color: #FECACA;
+  color: var(--alert);
+}
+
+/* ── KPI row (Trial Balance / Balance Sheet horizontal layout) ── */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+/* ── Unstyled table wrapper (for Trial Balance / Balance Sheet) ── */
+.table-wrap {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--white);
+  box-shadow: var(--shadow-xs);
+  overflow-x: auto;
+}
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table-wrap th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #F2F5F3;
+  text-align: left;
+  padding: 9px 13px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  border-bottom: 2px solid var(--border);
+}
+.table-wrap td {
+  padding: 8px 13px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text);
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.table-wrap tbody tr {
+  transition: background 120ms ease;
+}
+.table-wrap tbody tr:hover {
+  background: #EFF5F1;
+}
+
+/* ── Cold-start / suspense loading screen ─────────────────────── */
+.suspense-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 16px;
+  color: var(--text-muted);
+  animation: fadeIn 300ms ease-out;
+}
+.suspense-loader .spinner {
+  width: 28px;
+  height: 28px;
+  border-width: 2.5px;
+}
+.suspense-loader p {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* text-xs utility */
+.text-xs { font-size: 11px; }
+
 /* ── Pagination ──────────────────────────────────────────────── */
 .pagination {
   display: flex;
@@ -1152,7 +1283,6 @@ table td input[type="number"]::-webkit-inner-spin-button {
 /* Firefox */
 * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
-/* ── Dashboard panels (responsive replacement for inline grid) ── */
 .dashboard-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1764,4 +1894,107 @@ table td input[type="number"]::-webkit-inner-spin-button {
     border: 1px solid #94a3b8 !important;
     padding: 6px 10px !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DASHBOARD REDESIGN — Reference Card Style
+   ═══════════════════════════════════════════════════════════════ */
+
+.db-root { display: flex; flex-direction: column; gap: 18px; padding-bottom: 32px; }
+
+.db-welcome { background: linear-gradient(135deg, #0F6E4F 0%, #1B4B91 100%); border-radius: 14px; padding: 22px 28px; color: #fff; }
+.db-welcome-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.db-welcome-title { font-size: 1.35rem; font-weight: 700; color: #fff; margin: 0 0 4px; }
+.db-welcome-sub { font-size: 0.82rem; color: rgba(255,255,255,0.78); margin: 0; }
+
+.db-section-header { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+.db-section-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; color: var(--text-muted); text-transform: uppercase; }
+
+.db-quick-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.db-quick-card { display: flex; align-items: center; gap: 14px; background: #fff; border: 1.5px solid var(--border); border-radius: 12px; padding: 18px 16px; cursor: pointer; text-align: left; transition: border-color 0.18s, box-shadow 0.18s, transform 0.15s; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.db-quick-card:hover { border-color: var(--brand); box-shadow: 0 4px 18px rgba(15,110,79,0.12); transform: translateY(-2px); }
+.db-quick-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.db-quick-title { font-size: 0.9rem; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.db-quick-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+.db-health-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.db-health-card { background: #fff; border-radius: 12px; border: 1.5px solid var(--border); border-top: 3.5px solid var(--hc-border, #0F6E4F); padding: 18px 18px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 6px; transition: box-shadow 0.18s; }
+.db-health-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); }
+.db-health-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.db-health-icon { width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+.db-health-badge { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; }
+.db-health-value { font-size: 1.45rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; margin-top: 4px; }
+.db-health-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+.db-profit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.db-profit-breakdown, .db-profit-chart-card { background: #fff; border-radius: 12px; border: 1.5px solid var(--border); padding: 22px 22px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.db-profit-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+.db-profit-dot { width: 10px; height: 10px; border-radius: 3px; }
+.db-profit-card-title { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+.db-profit-center { text-align: center; margin-bottom: 20px; }
+.db-profit-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+.db-profit-big { font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.db-profit-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+.db-profit-bars { display: flex; flex-direction: column; gap: 10px; }
+.db-profit-bar-row { display: grid; grid-template-columns: 1fr 90px auto; align-items: center; gap: 10px; }
+.db-profit-bar-label { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-profit-bar-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.db-profit-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.db-profit-bar-val { font-size: 0.78rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+.db-chart-bars { display: flex; align-items: flex-end; justify-content: center; gap: 24px; height: 160px; padding-top: 16px; }
+.db-chart-col { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+.db-chart-bar-wrap { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; min-height: 0; }
+.db-chart-bar { width: 52px; border-radius: 6px 6px 0 0; min-height: 6px; transition: height 0.4s ease; }
+.db-chart-bar-val { font-size: 0.7rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.db-chart-bar-label { font-size: 0.68rem; color: var(--text-muted); text-align: center; }
+
+.db-cashflow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.db-cashflow-card { background: #fff; border-radius: 12px; border: 1.5px solid var(--border); border-top: 3.5px solid var(--cf-border, #2563EB); padding: 22px 22px 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.db-cashflow-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.db-cashflow-value { font-size: 1.8rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.db-cashflow-label { font-size: 0.78rem; color: var(--text-muted); margin: 4px 0 12px; }
+.db-cashflow-overall { font-size: 0.78rem; color: var(--text-muted); padding-top: 10px; border-top: 1px dashed var(--border); }
+.db-cashflow-overall strong { color: var(--text); }
+
+.db-bank-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.db-bank-card { background: #fff; border-radius: 12px; border: 1.5px solid var(--border); border-top: 3.5px solid #6366F1; padding: 18px 18px 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 6px; transition: box-shadow 0.18s; }
+.db-bank-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+.db-bank-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
+.db-bank-icon { width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+.db-bank-badge { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 8px; border-radius: 20px; background: #EEF2FF; color: #6366F1; }
+.db-bank-balance { font-size: 1.35rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.db-bank-name { font-size: 0.78rem; color: var(--text-muted); }
+.db-bank-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--border); }
+.db-bank-sub { font-size: 0.72rem; color: var(--text-muted); }
+.db-bank-ledger-btn { display: inline-flex; align-items: center; gap: 2px; font-size: 0.72rem; font-weight: 600; color: var(--brand); background: none; border: none; cursor: pointer; padding: 0; transition: opacity 0.15s; }
+.db-bank-ledger-btn:hover { opacity: 0.75; }
+.db-bank-highlight { background: linear-gradient(135deg, #0F6E4F 0%, #16A34A 100%) !important; border: none !important; border-top: none !important; }
+.db-bank-icon-light { background: rgba(255,255,255,0.22) !important; }
+.db-bank-badge-light { background: rgba(255,255,255,0.22) !important; color: #fff !important; }
+.db-bank-balance-highlight { font-size: 1.45rem; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.db-bank-name-light { font-size: 0.78rem; color: rgba(255,255,255,0.85); }
+.db-bank-sub-light { font-size: 0.72rem; color: rgba(255,255,255,0.65); margin-top: 4px; }
+
+.db-tables-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.db-table-card { background: #fff; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.db-table-header { display: flex; align-items: center; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 0.82rem; font-weight: 600; color: var(--text); background: #f9fafb; }
+
+@media (max-width: 1100px) {
+  .db-quick-row { grid-template-columns: repeat(2, 1fr); }
+  .db-health-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .db-quick-row, .db-health-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .db-profit-grid, .db-cashflow-grid, .db-tables-grid { grid-template-columns: 1fr; gap: 10px; }
+  .db-bank-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .db-welcome { padding: 16px 18px; }
+  .db-welcome-title { font-size: 1.1rem; }
+  .db-health-value { font-size: 1.15rem; }
+  .db-cashflow-value { font-size: 1.4rem; }
+}
+@media (max-width: 480px) {
+  .db-quick-card { flex-direction: column; text-align: center; gap: 8px; padding: 14px 10px; }
+  .db-bank-grid { grid-template-columns: 1fr; }
+  .db-profit-bar-row { grid-template-columns: 1fr auto; }
+  .db-profit-bar-track { display: none; }
 }

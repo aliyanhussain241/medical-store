@@ -31,10 +31,16 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
+    const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
-    authAPI.logout(refreshToken).catch(() => {});
+    // Clear local state immediately so UI transitions to logged-out
     localStorage.clear();
     setUser(null);
+    // Fire server-side invalidation in background (best-effort)
+    // Must pass the access token explicitly since localStorage is already cleared
+    if (accessToken) {
+      authAPI.logout(refreshToken, accessToken).catch(() => {});
+    }
   }
 
   function updateUser(updated) {

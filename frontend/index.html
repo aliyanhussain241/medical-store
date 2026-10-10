@@ -9,21 +9,37 @@
     <link rel="apple-touch-icon" href="/favicon.jpg" />
 
     <!-- Title & SEO -->
-    <title>Rahmat Medical Wholesale — Management System</title>
-    <meta name="description" content="Rahmat Medical Wholesale — Professional wholesale management system for invoicing, purchasing, inventory, ledgers, cash book, and profit reports." />
+    <title>MedStore — Wholesale Medical Store Management</title>
+    <meta name="description" content="MedStore — Professional wholesale medical store management system for invoicing, purchasing, inventory, ledgers, cash book, and profit reports." />
     <meta name="theme-color" content="#1B4B40" />
 
     <!-- Open Graph (for sharing link previews) -->
-    <meta property="og:title" content="Rahmat Medical Wholesale" />
-    <meta property="og:description" content="Wholesale management system — Invoicing, Purchasing, Inventory & Reports" />
+    <meta property="og:title" content="MedStore — Wholesale Medical Management" />
+    <meta property="og:description" content="Wholesale medical store management — Invoicing, Purchasing, Inventory & Reports" />
     <meta property="og:type" content="website" />
 
-    <!-- Fonts -->
+    <!-- Fonts — preconnect + preload for fastest first paint -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Critical inline CSS — prevents FOUC while JS loads -->
+    <style>
+      #root {
+        height: 100%;
+        font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #F6F8F6;
+      }
+    </style>
   </head>
   <body>
+    <noscript>
+      <div style="padding:40px;text-align:center;font-family:sans-serif;color:#475569">
+        <h2>JavaScript Required</h2>
+        <p>Please enable JavaScript to use MedStore.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

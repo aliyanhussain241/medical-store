@@ -36,8 +36,8 @@ export default function Login() {
     <div className="auth-page">
       <div className="auth-card">
         <div className="auth-logo">
-          <h1>StoreOS</h1>
-          <p>Store &amp; Wholesale Management</p>
+          <h1>MedStore</h1>
+          <p>Wholesale Medical Store Management</p>
         </div>
 
         <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
@@ -85,7 +85,7 @@ export default function Login() {
         </p>
 
         <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: '#aaa' }}>
-          Demo: demo@medicalstore.app / Demo@12345
+          Demo: demo@medicalstore.app &nbsp;|&nbsp; Demo@12345
         </p>
       </div>
     </div>

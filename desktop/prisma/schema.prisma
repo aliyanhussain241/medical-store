@@ -1,0 +1,529 @@
+// generator client generates the Prisma Client JS library
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma-client"
+}
+
+// Desktop — embedded SQLite database (no server install needed)
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// USERS  (one per business / tenant)
+// ─────────────────────────────────────────────
+model User {
+  id            String    @id @default(uuid())
+  businessName  String    @map("business_name")
+  ownerName     String    @map("owner_name")
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  phone         String?
+  address       String?
+  role          String    @default("OWNER")
+  businessType  String    @default("PHARMACY") @map("business_type")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  companies         Company[]
+  customers         Customer[]
+  products          Product[]
+  purchases         Purchase[]
+  invoices          Invoice[]
+  ledgerTxns        LedgerTransaction[]
+  cashBookEntries   CashBookEntry[]
+  dailyProfits      DailyProfit[]
+  stockMovements    StockMovement[]
+  refreshTokens     RefreshToken[]
+  offerLists        OfferList[]
+  bankAccounts      BankAccount[]
+  bankBookEntries   BankBookEntry[]
+  cities            City[]
+  employees         Employee[]
+  salaryPayments    SalaryPayment[]
+  accountHeads      AccountHead[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// REFRESH TOKENS  (for JWT rotation)
+// ─────────────────────────────────────────────
+model RefreshToken {
+  id        String    @id @default(uuid())
+  token     String    @unique
+  userId    String    @map("user_id")
+  expiresAt DateTime  @map("expires_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────
+// COMPANIES  (suppliers / distributors)
+// ─────────────────────────────────────────────
+model Company {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  companyName     String    @map("company_name")
+  contactPerson   String?   @map("contact_person")
+  phone           String?
+  address         String?
+  town            String?
+  sector          String?
+  cnic            String?
+  openingBalance  Decimal   @default(0) @map("opening_balance")
+  currentBalance  Decimal   @default(0) @map("current_balance")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchases       Purchase[]
+  offerListItems  OfferListItem[]
+
+  @@index([userId])
+  @@map("companies")
+}
+
+// ─────────────────────────────────────────────
+// CUSTOMERS
+// ─────────────────────────────────────────────
+model Customer {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  customerCode    String?   @map("customer_code")
+  customerName    String    @map("customer_name")
+  shopName        String?   @map("shop_name")
+  phone           String?
+  address         String?
+  area            String?
+  town            String?
+  sector          String?
+  cnic            String?
+  openingBalance  Decimal   @default(0) @map("opening_balance")
+  currentBalance  Decimal   @default(0) @map("current_balance")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoices        Invoice[]
+
+  @@index([userId])
+  @@index([userId, area])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────
+// PRODUCTS / INVENTORY
+// ─────────────────────────────────────────────
+model Product {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  productName     String    @map("product_name")
+  category        String?
+  unit            String    @default("strip")
+  batchNo         String?   @map("batch_no")
+  expiryDate      DateTime? @map("expiry_date")
+  purchasePrice   Decimal   @map("purchase_price")
+  tradePrice      Decimal?  @map("trade_price")
+  salePrice       Decimal   @map("sale_price")
+  stockQty        Decimal   @default(0) @map("stock_qty")
+  minStockAlert   Decimal   @default(10) @map("min_stock_alert")
+  piecesPerPack   Int?      @default(1) @map("pieces_per_pack")
+  packing         String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purchaseItems   PurchaseItem[]
+  invoiceItems    InvoiceItem[]
+  stockMovements  StockMovement[]
+  offerListItems  OfferListItem[]
+
+  @@index([userId])
+  @@index([userId, productName])
+  @@index([userId, expiryDate])
+  @@map("products")
+}
+
+// ─────────────────────────────────────────────
+// PURCHASES  (buying from companies)
+// ─────────────────────────────────────────────
+model Purchase {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  companyId       String    @map("company_id")
+  invoiceNo       String    @map("invoice_no")
+  purchaseDate    DateTime  @map("purchase_date")
+  totalAmount     Decimal   @map("total_amount")
+  paidAmount      Decimal   @default(0) @map("paid_amount")
+  balanceAmount   Decimal   @map("balance_amount")
+  paymentStatus   String    @default("PENDING") @map("payment_status")
+  paymentMethod   String    @default("CASH") @map("payment_method")
+  bankAccountId   String?   @map("bank_account_id")
+  narration       String?
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company         Company         @relation(fields: [companyId], references: [id])
+  bankAccount     BankAccount?    @relation(fields: [bankAccountId], references: [id])
+  items           PurchaseItem[]
+
+  @@index([userId])
+  @@index([userId, purchaseDate])
+  @@index([userId, paymentStatus])
+  @@index([companyId])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id            String    @id @default(uuid())
+  purchaseId    String    @map("purchase_id")
+  productId     String    @map("product_id")
+  qty           Decimal
+  unitPrice     Decimal   @map("unit_price")
+  discount      Decimal   @default(0)
+  total         Decimal
+  subUnit       String?   @map("sub_unit")
+  piecesQty     Decimal?  @map("pieces_qty")
+  piecesPerPack Int?      @map("pieces_per_pack")
+
+  purchase      Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product       Product   @relation(fields: [productId], references: [id])
+
+  @@index([purchaseId])
+  @@index([productId])
+  @@map("purchase_items")
+}
+
+// ─────────────────────────────────────────────
+// INVOICES  (selling to customers)
+// ─────────────────────────────────────────────
+model Invoice {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  customerId      String    @map("customer_id")
+  invoiceNo       String    @map("invoice_no")
+  invoiceDate     DateTime  @map("invoice_date")
+  totalAmount     Decimal   @map("total_amount")
+  paidAmount      Decimal   @default(0) @map("paid_amount")
+  balanceAmount   Decimal   @map("balance_amount")
+  paymentStatus   String    @default("PENDING") @map("payment_status")
+  paymentMethod   String    @default("CASH") @map("payment_method")
+  bankAccountId   String?   @map("bank_account_id")
+  invoiceType     String    @default("CREDIT") @map("invoice_type")
+  narration       String?
+  salesman        String?
+  printCount      Int       @default(0) @map("print_count")
+  prvBalance      Decimal?  @map("prv_balance")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customer        Customer        @relation(fields: [customerId], references: [id])
+  bankAccount     BankAccount?    @relation(fields: [bankAccountId], references: [id])
+  items           InvoiceItem[]
+
+  @@index([userId])
+  @@index([userId, invoiceDate])
+  @@index([userId, paymentStatus])
+  @@index([customerId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String    @id @default(uuid())
+  invoiceId   String    @map("invoice_id")
+  productId   String?   @map("product_id")
+  customName  String?   @map("custom_name")
+  qty         Decimal
+  unitPrice   Decimal   @map("unit_price")
+  pricingMode String    @default("TP") @map("pricing_mode")
+  batchNo     String?   @map("batch_no")
+  packing     String?
+  discount    Decimal   @default(0)
+  discountAmt Decimal   @default(0) @map("discount_amt")
+  schemeUnits Decimal   @default(0) @map("scheme_units")
+  schemeTotal Decimal   @default(0) @map("scheme_total")
+  freePcs     Decimal   @default(0) @map("free_pcs")
+  grossTotal  Decimal   @default(0) @map("gross_total")
+  total       Decimal
+
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product     Product?  @relation(fields: [productId], references: [id])
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@map("invoice_items")
+}
+
+// ─────────────────────────────────────────────
+// LEDGER TRANSACTIONS  (double-entry per party)
+// ─────────────────────────────────────────────
+model LedgerTransaction {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  partyType       String    @map("party_type")
+  partyId         String    @map("party_id")
+  transactionDate DateTime  @map("transaction_date")
+  description     String
+  referenceType   String    @map("reference_type")
+  referenceId     String    @map("reference_id")
+  debit           Decimal   @default(0)
+  credit          Decimal   @default(0)
+  runningBalance  Decimal   @map("running_balance")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, partyType, partyId])
+  @@index([userId, partyType, partyId, createdAt])
+  @@index([userId, transactionDate])
+  @@map("ledger_transactions")
+}
+
+// ─────────────────────────────────────────────
+// CASH BOOK
+// ─────────────────────────────────────────────
+model CashBookEntry {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  transactionDate DateTime     @map("transaction_date")
+  description     String
+  cashIn          Decimal      @default(0) @map("cash_in")
+  cashOut         Decimal      @default(0) @map("cash_out")
+  runningBalance  Decimal      @map("running_balance")
+  referenceType   String?      @map("reference_type")
+  referenceId     String?      @map("reference_id")
+  entryType       String?      @map("entry_type")
+  entryNo         Int?         @map("entry_no")
+  partyName       String?      @map("party_name")
+  accountHeadId   String?      @map("account_head_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountHead     AccountHead? @relation(fields: [accountHeadId], references: [id])
+
+  @@index([userId])
+  @@index([userId, transactionDate])
+  @@index([userId, createdAt])
+  @@map("cash_book")
+}
+
+// ─────────────────────────────────────────────
+// DAILY PROFIT
+// ─────────────────────────────────────────────
+model DailyProfit {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  reportDate    DateTime  @map("report_date")
+  totalSales    Decimal   @default(0) @map("total_sales")
+  totalCost     Decimal   @default(0) @map("total_cost")
+  totalProfit   Decimal   @default(0) @map("total_profit")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, reportDate])
+  @@index([userId])
+  @@index([userId, reportDate])
+  @@map("daily_profit")
+}
+
+// ─────────────────────────────────────────────
+// STOCK MOVEMENTS
+// ─────────────────────────────────────────────
+model StockMovement {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  productId     String    @map("product_id")
+  movementType  String    @map("movement_type")
+  qty           Decimal
+  referenceId   String?   @map("reference_id")
+  movementDate  DateTime  @map("movement_date")
+  notes         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product       Product   @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([userId, productId])
+  @@index([userId, movementDate])
+  @@map("stock_movements")
+}
+
+// ─────────────────────────────────────────────
+// OFFER LISTS
+// ─────────────────────────────────────────────
+model OfferList {
+  id          String          @id @default(uuid())
+  userId      String          @map("user_id")
+  listNumber  String          @map("list_number")
+  listDate    DateTime        @default(now()) @map("list_date")
+  isActive    Boolean         @default(true) @map("is_active")
+  remarks     String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       OfferListItem[]
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@map("offer_lists")
+}
+
+model OfferListItem {
+  id           String     @id @default(uuid())
+  offerListId  String     @map("offer_list_id")
+  companyId    String     @map("company_id")
+  productId    String     @map("product_id")
+  offerType    String     @default("PERCENTAGE") @map("offer_type")
+  offerValue   Decimal?   @map("offer_value")
+  bonusBuyQty  Decimal?   @map("bonus_buy_qty")
+  bonusFreeQty Decimal?   @map("bonus_free_qty")
+  remarks      String?
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  offerList    OfferList  @relation(fields: [offerListId], references: [id], onDelete: Cascade)
+  company      Company    @relation(fields: [companyId], references: [id])
+  product      Product    @relation(fields: [productId], references: [id])
+
+  @@index([offerListId])
+  @@index([companyId])
+  @@index([productId])
+  @@map("offer_list_items")
+}
+
+// ─────────────────────────────────────────────
+// BANK ACCOUNTS
+// ─────────────────────────────────────────────
+model BankAccount {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  bankName        String    @map("bank_name")
+  accountTitle    String    @map("account_title")
+  accountNumber   String    @map("account_number")
+  branch          String?
+  openingBalance  Decimal   @default(0) @map("opening_balance")
+  currentBalance  Decimal   @default(0) @map("current_balance")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries         BankBookEntry[]
+  purchases       Purchase[]
+  invoices        Invoice[]
+  salaryPayments  SalaryPayment[]
+
+  @@index([userId])
+  @@map("bank_accounts")
+}
+
+// ─────────────────────────────────────────────
+// BANK BOOK
+// ─────────────────────────────────────────────
+model BankBookEntry {
+  id              String       @id @default(uuid())
+  userId          String       @map("user_id")
+  bankAccountId   String       @map("bank_account_id")
+  transactionDate DateTime     @map("transaction_date")
+  description     String
+  debit           Decimal      @default(0)
+  credit          Decimal      @default(0)
+  runningBalance  Decimal      @map("running_balance")
+  referenceType   String?      @map("reference_type")
+  referenceId     String?      @map("reference_id")
+  narration       String?
+  partyName       String?      @map("party_name")
+  accountHeadId   String?      @map("account_head_id")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bankAccount     BankAccount  @relation(fields: [bankAccountId], references: [id])
+  accountHead     AccountHead? @relation(fields: [accountHeadId], references: [id])
+
+  @@index([userId])
+  @@index([userId, bankAccountId])
+  @@index([userId, transactionDate])
+  @@map("bank_book")
+}
+
+// ─────────────────────────────────────────────
+// CITIES / AREAS
+// ─────────────────────────────────────────────
+model City {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  cityName  String   @map("city_name")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("cities")
+}
+
+// ─────────────────────────────────────────────
+// EMPLOYEES
+// ─────────────────────────────────────────────
+model Employee {
+  id             String          @id @default(uuid())
+  userId         String          @map("user_id")
+  employeeName   String          @map("employee_name")
+  town           String?
+  sector         String?
+  designation    String?
+  salary         Decimal
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at")
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salaryPayments SalaryPayment[]
+
+  @@index([userId])
+  @@map("employees")
+}
+
+model SalaryPayment {
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  employeeId    String      @map("employee_id")
+  paymentDate   DateTime    @map("payment_date")
+  amount        Decimal
+  paymentMethod String      @default("CASH") @map("payment_method")
+  bankAccountId String?     @map("bank_account_id")
+  narration     String?
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee      Employee     @relation(fields: [employeeId], references: [id])
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  @@index([userId])
+  @@index([employeeId])
+  @@map("salary_payments")
+}
+
+// ─────────────────────────────────────────────
+// CHART OF ACCOUNTS
+// ─────────────────────────────────────────────
+model AccountHead {
+  id          String    @id @default(uuid())
+  userId      String    @map("user_id")
+  name        String
+  category    String
+  description String?
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cashEntries CashBookEntry[]
+  bankEntries BankBookEntry[]
+
+  @@index([userId])
+  @@index([userId, category])
+  @@map("account_heads")
+}

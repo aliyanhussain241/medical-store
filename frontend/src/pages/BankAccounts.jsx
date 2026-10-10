@@ -99,9 +99,26 @@ export default function BankAccounts() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                Array.from({ length: 4 }).map((_, i) => (
+                  <tr key={i} className="skeleton-row">
+                    <td><div className="skeleton-cell" style={{ width: '70%' }} /></td>
+                    <td><div className="skeleton-cell" style={{ width: '80%' }} /></td>
+                    <td><div className="skeleton-cell" style={{ width: '60%' }} /></td>
+                    <td><div className="skeleton-cell" style={{ width: '40%' }} /></td>
+                    <td><div className="skeleton-cell" style={{ width: '50%' }} /></td>
+                    <td><div className="skeleton-cell" style={{ width: '50%' }} /></td>
+                    <td><div className="skeleton-cell" style={{ width: '30%' }} /></td>
+                  </tr>
+                ))
               ) : accounts.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No bank accounts found</td></tr>
+                <tr><td colSpan={7}>
+                  <div className="empty-state-box">
+                    <div className="empty-state-icon-wrap"><Landmark size={24} /></div>
+                    <div className="empty-state-title">No bank accounts yet</div>
+                    <div className="empty-state-desc">Add your first bank account to start tracking payments through banking channels.</div>
+                    <button className="btn btn-primary btn-sm" onClick={openAdd}><Plus size={14} /> Add Bank Account</button>
+                  </div>
+                </td></tr>
               ) : accounts.map((a) => (
                 <tr key={a.id}>
                   <td style={{ fontWeight: 600 }}>

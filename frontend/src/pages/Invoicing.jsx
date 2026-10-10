@@ -6,7 +6,7 @@
 //   - Client Reference Invoice Format (PDF, Excel, On-Screen Modal, Print)
 //   - Customer Previous Balance (Prv) & Area Tracking
 // ─────────────────────────────────────────────────────────────
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersAPI, productsAPI, invoicesAPI, exportAPI, offerListsAPI, downloadBlob, bankAccountsAPI } from '../api/services';
 import { useAuth } from '../context/AuthContext';
@@ -274,14 +274,14 @@ export default function Invoicing() {
   }
 
   // Line & grand total calculations
-  const totalAmount = items.reduce((sum, item) => {
+  const totalAmount = useMemo(() => items.reduce((sum, item) => {
     const q = parseFloat(item.qty) || 0;
     const p = parseFloat(item.unitPrice) || 0;
     const d = parseFloat(item.discount) || 0;
     const gross = q * p;
     const discAmt = gross * (d / 100);
     return sum + (gross - discAmt);
-  }, 0);
+  }, 0), [items]);
 
   const paid = parseFloat(paidAmount) || 0;
   const balance = totalAmount - paid;

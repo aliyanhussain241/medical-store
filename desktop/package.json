@@ -1,0 +1,95 @@
+{
+  "name": "medstore-desktop",
+  "version": "1.0.0",
+  "description": "MedStore — Wholesale Medical Store Management (Desktop)",
+  "main": "main.js",
+  "author": "MedStore",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "node scripts/prepare.js && electron-builder --win",
+    "build:dir": "node scripts/prepare.js && electron-builder --win --dir",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.12.0",
+    "multer": "^2.3.0",
+    "nodemailer": "^9.1.1",
+    "pdfkit": "^0.20.2",
+    "prisma": "5.22.0"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0"
+  },
+  "build": {
+    "appId": "com.medstore.desktop",
+    "productName": "MedStore",
+    "copyright": "Copyright © 2024-2026 MedStore",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "template.db",
+      "backend/**/*",
+      "prisma/**/*",
+      "generated/**/*",
+      "node_modules/**/*",
+      "!node_modules/.cache/**",
+      "!node_modules/electron/**",
+      "!node_modules/electron-builder/**",
+      "icon.ico"
+    ],
+    "extraResources": [
+      {
+        "from": "prisma",
+        "to": "prisma",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "icon.ico",
+      "publisherName": "MedStore",
+      "signDlls": false,
+      "sign": null
+    },
+    "forceCodeSigning": false,
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MedStore",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "runAfterFinish": true
+    },
+    "asar": false,
+    "compression": "maximum"
+  },
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "prisma@5.22.0": true,
+    "electron@33.4.11": true
+  }
+}

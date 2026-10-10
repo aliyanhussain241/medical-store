@@ -1,39 +1,53 @@
 // ─────────────────────────────────────────────────────────────
-// src/App.jsx — Root router with auth guard and offline detection
+// src/App.jsx — Root router with auth guard, code-splitting,
+//               offline detection, and cold-start loading UX
 // ─────────────────────────────────────────────────────────────
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { BusinessConfigProvider } from './context/BusinessConfigContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 
+// ── Eagerly loaded (critical path — Dashboard + Invoicing) ───
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Invoicing from './pages/Invoicing';
-import Purchasing from './pages/Purchasing';
-import Customers from './pages/Customers';
-import Companies from './pages/Companies';
-import Inventory from './pages/Inventory';
-import CustomerLedger from './pages/CustomerLedger';
-import CompanyLedger from './pages/CompanyLedger';
-import CashBook from './pages/CashBook';
-import Reports from './pages/Reports';
-import OfferLists from './pages/OfferLists';
-import PartyBalanceReport from './pages/PartyBalanceReport';
-import BankAccounts from './pages/BankAccounts';
-import BankLedger from './pages/BankLedger';
-import Cities from './pages/Cities';
-import Employees from './pages/Employees';
-import ChartOfAccounts from './pages/ChartOfAccounts';
-import TrialBalance from './pages/TrialBalance';
-import BalanceSheet from './pages/BalanceSheet';
+
+// ── Lazy loaded (secondary screens — loaded on-demand) ───────
+const Purchasing = lazy(() => import('./pages/Purchasing'));
+const Customers = lazy(() => import('./pages/Customers'));
+const Companies = lazy(() => import('./pages/Companies'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const CustomerLedger = lazy(() => import('./pages/CustomerLedger'));
+const CompanyLedger = lazy(() => import('./pages/CompanyLedger'));
+const CashBook = lazy(() => import('./pages/CashBook'));
+const Reports = lazy(() => import('./pages/Reports'));
+const OfferLists = lazy(() => import('./pages/OfferLists'));
+const PartyBalanceReport = lazy(() => import('./pages/PartyBalanceReport'));
+const BankAccounts = lazy(() => import('./pages/BankAccounts'));
+const BankLedger = lazy(() => import('./pages/BankLedger'));
+const Cities = lazy(() => import('./pages/Cities'));
+const Employees = lazy(() => import('./pages/Employees'));
+const ChartOfAccounts = lazy(() => import('./pages/ChartOfAccounts'));
+const TrialBalance = lazy(() => import('./pages/TrialBalance'));
+const BalanceSheet = lazy(() => import('./pages/BalanceSheet'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
 });
+
+// ── Suspense fallback — polished loading state ───────────────
+function PageLoader() {
+  return (
+    <div className="suspense-loader">
+      <div className="spinner" />
+      <p>Loading page…</p>
+    </div>
+  );
+}
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -72,23 +86,24 @@ export default function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="invoicing" element={<Invoicing />} />
-              <Route path="purchasing" element={<Purchasing />} />
-              <Route path="customers" element={<Customers />} />
-              <Route path="companies" element={<Companies />} />
-              <Route path="cities" element={<Cities />} />
-              <Route path="inventory" element={<Inventory />} />
-              <Route path="ledger/customer" element={<CustomerLedger />} />
-              <Route path="ledger/company" element={<CompanyLedger />} />
-              <Route path="cash-book" element={<CashBook />} />
-              <Route path="reports" element={<Reports />} />
-              <Route path="reports/party-balance" element={<PartyBalanceReport />} />
-              <Route path="offer-lists" element={<OfferLists />} />
-              <Route path="bank-accounts" element={<BankAccounts />} />
-              <Route path="ledger/bank" element={<BankLedger />} />
-              <Route path="payroll" element={<Employees />} />
-              <Route path="chart-of-accounts" element={<ChartOfAccounts />} />
-              <Route path="reports/trial-balance" element={<TrialBalance />} />
-              <Route path="reports/balance-sheet" element={<BalanceSheet />} />
+              {/* Lazy-loaded routes wrapped in Suspense */}
+              <Route path="purchasing" element={<Suspense fallback={<PageLoader />}><Purchasing /></Suspense>} />
+              <Route path="customers" element={<Suspense fallback={<PageLoader />}><Customers /></Suspense>} />
+              <Route path="companies" element={<Suspense fallback={<PageLoader />}><Companies /></Suspense>} />
+              <Route path="cities" element={<Suspense fallback={<PageLoader />}><Cities /></Suspense>} />
+              <Route path="inventory" element={<Suspense fallback={<PageLoader />}><Inventory /></Suspense>} />
+              <Route path="ledger/customer" element={<Suspense fallback={<PageLoader />}><CustomerLedger /></Suspense>} />
+              <Route path="ledger/company" element={<Suspense fallback={<PageLoader />}><CompanyLedger /></Suspense>} />
+              <Route path="cash-book" element={<Suspense fallback={<PageLoader />}><CashBook /></Suspense>} />
+              <Route path="reports" element={<Suspense fallback={<PageLoader />}><Reports /></Suspense>} />
+              <Route path="reports/party-balance" element={<Suspense fallback={<PageLoader />}><PartyBalanceReport /></Suspense>} />
+              <Route path="offer-lists" element={<Suspense fallback={<PageLoader />}><OfferLists /></Suspense>} />
+              <Route path="bank-accounts" element={<Suspense fallback={<PageLoader />}><BankAccounts /></Suspense>} />
+              <Route path="ledger/bank" element={<Suspense fallback={<PageLoader />}><BankLedger /></Suspense>} />
+              <Route path="payroll" element={<Suspense fallback={<PageLoader />}><Employees /></Suspense>} />
+              <Route path="chart-of-accounts" element={<Suspense fallback={<PageLoader />}><ChartOfAccounts /></Suspense>} />
+              <Route path="reports/trial-balance" element={<Suspense fallback={<PageLoader />}><TrialBalance /></Suspense>} />
+              <Route path="reports/balance-sheet" element={<Suspense fallback={<PageLoader />}><BalanceSheet /></Suspense>} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

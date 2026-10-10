@@ -110,7 +110,7 @@ function generateInvoicePDF(invoice, user) {
     const tableW = 555;
 
     // Header: Business Name & City
-    const bizName = (user.businessName || 'MY STORE').toUpperCase();
+    const bizName = (user.businessName || 'MEDICAL WHOLESALE').toUpperCase();
     const bizCity = (user.city || '').toUpperCase();
     const bizAddr = user.address || '';
 
