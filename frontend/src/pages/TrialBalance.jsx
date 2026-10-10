@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsAPI, exportAPI, downloadBlob } from '../api/services';
 import toast from 'react-hot-toast';
-import { FileDown, FileSpreadsheet, CheckCircle, AlertTriangle, Scale } from 'lucide-react';
+import { FileDown, FileSpreadsheet, CheckCircle, AlertTriangle, Scale, Calendar, BookOpen } from 'lucide-react';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 function fmtPKR(n) {
   return `Rs ${parseFloat(n || 0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -61,29 +62,41 @@ export default function TrialBalance() {
   }
 
   return (
-    <div>
-      {/* Page header */}
-      <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Scale size={20} style={{ color: 'var(--brand)' }} />
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Trial Balance</h2>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>As On Date:</label>
-            <input
-              type="date"
-              className="input"
-              value={asOn}
-              onChange={(e) => setAsOn(e.target.value)}
-              style={{ width: 150 }}
-            />
-            <button className="btn btn-outline lbl" onClick={handleExportPDF} disabled={exportingPdf || isLoading}>
+    <div className="space-y-4">
+      <PageHeader
+        title="Trial Balance"
+        subtitle="Comprehensive general ledger audit statement verifying debit and credit equality"
+        badge="FINANCIAL AUDIT"
+        badgeVariant="brand"
+        actions={
+          <div className="flex gap-2">
+            <button className="btn btn-outline btn-sm" onClick={handleExportPDF} disabled={exportingPdf || isLoading}>
               <FileDown size={14} /> {exportingPdf ? '...' : 'PDF'}
             </button>
-            <button className="btn btn-outline lbl" onClick={handleExportExcel} disabled={exportingExcel || isLoading}>
+            <button className="btn btn-outline btn-sm" onClick={handleExportExcel} disabled={exportingExcel || isLoading}>
               <FileSpreadsheet size={14} /> {exportingExcel ? '...' : 'Excel'}
             </button>
+          </div>
+        }
+      />
+
+      {/* Date Filter Bar */}
+      <div className="app-filter-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%' }}>
+          <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1" style={{ marginBottom: 0 }}>
+              <Calendar size={13} /> As On Date:
+            </label>
+            <input
+              type="date"
+              className="form-input text-sm"
+              value={asOn}
+              onChange={(e) => setAsOn(e.target.value)}
+              style={{ width: 160 }}
+            />
+          </div>
+          <div className="text-xs font-semibold px-2.5 py-1 rounded-full bg-surface-alt text-muted ml-auto">
+            {rows.length} ledger accounts
           </div>
         </div>
       </div>
@@ -91,108 +104,111 @@ export default function TrialBalance() {
       {/* Balance check indicator */}
       {report && (
         <div
-          className="card"
           style={{
-            marginBottom: 16,
-            padding: '12px 20px',
+            padding: '12px 16px',
+            borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            background: isBalanced ? 'rgba(22, 101, 52, 0.08)' : 'rgba(180, 55, 43, 0.08)',
-            border: `1px solid ${isBalanced ? 'rgba(22, 101, 52, 0.25)' : 'rgba(180, 55, 43, 0.25)'}`,
+            background: isBalanced ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1px solid ${isBalanced ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
           }}
         >
           {isBalanced ? (
-            <CheckCircle size={20} style={{ color: '#166534', flexShrink: 0 }} />
+            <CheckCircle size={18} style={{ color: 'var(--paid)', flexShrink: 0 }} />
           ) : (
-            <AlertTriangle size={20} style={{ color: '#B4372B', flexShrink: 0 }} />
+            <AlertTriangle size={18} style={{ color: 'var(--alert)', flexShrink: 0 }} />
           )}
-          <span style={{ fontWeight: 600, fontSize: 13, color: isBalanced ? '#166534' : '#B4372B' }}>
+          <span style={{ fontWeight: 600, fontSize: 13, color: isBalanced ? 'var(--paid)' : 'var(--alert)' }}>
             {isBalanced
-              ? '✓ Trial Balance is BALANCED — Debit and Credit totals match.'
-              : `⚠ Trial Balance is NOT BALANCED — Difference: ${fmtPKR(difference)}`}
+              ? 'Trial Balance is BALANCED — Total Debits match Total Credits exactly.'
+              : `Trial Balance is NOT BALANCED — Difference: ${fmtPKR(difference)}`}
           </span>
         </div>
       )}
 
       {/* KPI Summary */}
-      <div className="kpi-row" style={{ marginBottom: 16 }}>
-        <div className="kpi-card">
-          <div className="kpi-label">Total Debit</div>
-          <div className="kpi-value" style={{ color: 'var(--brand)' }}>{fmtPKR(totalDebit)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Total Credit</div>
-          <div className="kpi-value" style={{ color: '#1B4B91' }}>{fmtPKR(totalCredit)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Difference</div>
-          <div className="kpi-value" style={{ color: isBalanced ? '#166534' : '#B4372B' }}>{fmtPKR(difference)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Accounts</div>
-          <div className="kpi-value">{rows.length}</div>
-        </div>
-      </div>
+      <KpiGrid cols={4}>
+        <KpiCard
+          title="Total Debit (Dr)"
+          value={fmtPKR(totalDebit)}
+          caption="Aggregate debit ledger balances"
+          icon={Scale}
+          accentColor="emerald"
+          badge="DR TOTAL"
+        />
+        <KpiCard
+          title="Total Credit (Cr)"
+          value={fmtPKR(totalCredit)}
+          caption="Aggregate credit ledger balances"
+          icon={Scale}
+          accentColor="blue"
+          badge="CR TOTAL"
+        />
+        <KpiCard
+          title="Audit Difference"
+          value={fmtPKR(difference)}
+          caption={isBalanced ? 'Zero difference (in balance)' : 'Unreconciled discrepancy'}
+          icon={isBalanced ? CheckCircle : AlertTriangle}
+          accentColor={isBalanced ? 'emerald' : 'rose'}
+          badge={isBalanced ? 'BALANCED' : 'IMBALANCE'}
+        />
+        <KpiCard
+          title="Ledger Accounts"
+          value={rows.length}
+          caption={`${sections.length} categories classified`}
+          icon={BookOpen}
+          accentColor="brand"
+          badge="HEADS"
+        />
+      </KpiGrid>
 
       {/* Table */}
       {isLoading ? (
-        <>
-          <div className="kpi-row" style={{ marginBottom: 16 }}>
-            {[1,2,3,4].map(i => (
-              <div key={i} className="kpi-card">
-                <div className="skeleton skeleton-text" style={{ width: '55%', height: 12 }} />
-                <div className="skeleton skeleton-text" style={{ width: '80%', height: 24, marginTop: 8 }} />
-              </div>
-            ))}
-          </div>
-          <div className="card" style={{ padding: 0 }}>
-            <div className="data-table-wrap" style={{ border: 'none' }}>
-              <table className="data-table">
-                <thead><tr><th style={{ width: 40 }}>#</th><th>Account Name</th><th style={{ textAlign: 'right' }}>Debit (Rs)</th><th style={{ textAlign: 'right' }}>Credit (Rs)</th></tr></thead>
-                <tbody>
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <tr key={i} className="skeleton-row">
-                      <td><div className="skeleton-cell" style={{ width: 20 }} /></td>
-                      <td><div className="skeleton-cell" style={{ width: '70%' }} /></td>
-                      <td><div className="skeleton-cell" style={{ width: '50%', marginLeft: 'auto' }} /></td>
-                      <td><div className="skeleton-cell" style={{ width: '50%', marginLeft: 'auto' }} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
+        <div className="app-table-card">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th style={{ width: 40 }}>#</th>
+                <th>Account Name</th>
+                <th className="num" style={{ width: 160 }}>Debit (Rs)</th>
+                <th className="num" style={{ width: 160 }}>Credit (Rs)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <TableSkeleton cols={4} rows={8} />
+            </tbody>
+          </table>
+        </div>
       ) : rows.length === 0 ? (
-        <div className="card">
-          <div className="empty-state-box">
-            <div className="empty-state-icon-wrap"><Scale size={24} /></div>
-            <div className="empty-state-title">No trial balance data</div>
-            <div className="empty-state-desc">No transactions found for the selected date. Try adjusting the date or add some entries first.</div>
-          </div>
+        <div className="app-table-card p-8">
+          <EmptyState
+            icon={Scale}
+            title="No trial balance data"
+            description="No transactions found for the selected date. Adjust the date or add transactions to populate the trial balance."
+          />
         </div>
       ) : (
         <>
           {/* Desktop table */}
-          <div className="table-wrap desktop-only">
-            <table>
+          <div className="app-table-card desktop-only">
+            <table className="data-table">
               <thead>
                 <tr>
-                  <th style={{ width: 40 }}>#</th>
+                  <th style={{ width: 50 }}>#</th>
                   <th>Account Name</th>
-                  <th style={{ textAlign: 'right', width: 160 }}>Debit (Rs)</th>
-                  <th style={{ textAlign: 'right', width: 160 }}>Credit (Rs)</th>
+                  <th className="num" style={{ width: 160 }}>Debit (Dr)</th>
+                  <th className="num" style={{ width: 160 }}>Credit (Cr)</th>
                 </tr>
               </thead>
               <tbody>
                 {sections.map((section) => (
                   <SectionGroup key={section.name} section={section} />
                 ))}
-                <tr style={{ fontWeight: 700, background: 'var(--brand)', color: '#fff' }}>
-                  <td colSpan={2}>TOTAL</td>
-                  <td style={{ textAlign: 'right' }}>{fmtPKR(totalDebit)}</td>
-                  <td style={{ textAlign: 'right' }}>{fmtPKR(totalCredit)}</td>
+                <tr style={{ fontWeight: 700, background: '#1e293b', color: '#fff' }}>
+                  <td colSpan={2} style={{ color: '#fff' }}>GRAND TOTAL</td>
+                  <td className="num tabular" style={{ color: '#34d399' }}>{fmtPKR(totalDebit)}</td>
+                  <td className="num tabular" style={{ color: '#60a5fa' }}>{fmtPKR(totalCredit)}</td>
                 </tr>
               </tbody>
             </table>
@@ -201,9 +217,9 @@ export default function TrialBalance() {
           {/* Mobile cards */}
           <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {sections.map((section) => (
-              <div key={section.name} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div key={section.name} className="app-table-card" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{
-                  background: 'rgba(15, 110, 79, 0.08)',
+                  background: 'var(--subtle, #f8fafc)',
                   padding: '8px 14px',
                   fontWeight: 700,
                   fontSize: 12,
@@ -224,10 +240,10 @@ export default function TrialBalance() {
                   }}>
                     <span style={{ fontSize: 12, fontWeight: 500, flex: 1, minWidth: 120 }}>{row.name}</span>
                     <div style={{ display: 'flex', gap: 16, fontSize: 12 }}>
-                      <span style={{ color: row.debit > 0 ? 'var(--brand)' : 'var(--text-secondary)' }}>
+                      <span style={{ color: row.debit > 0 ? 'var(--paid)' : 'var(--text-muted)' }}>
                         DR: {row.debit > 0 ? fmtPKR(row.debit) : '—'}
                       </span>
-                      <span style={{ color: row.credit > 0 ? '#1B4B91' : 'var(--text-secondary)' }}>
+                      <span style={{ color: row.credit > 0 ? '#3b82f6' : 'var(--text-muted)' }}>
                         CR: {row.credit > 0 ? fmtPKR(row.credit) : '—'}
                       </span>
                     </div>
@@ -239,7 +255,7 @@ export default function TrialBalance() {
             {/* Mobile totals card */}
             <div className="card" style={{
               padding: '12px 14px',
-              background: 'var(--brand)',
+              background: '#1e293b',
               color: '#fff',
               display: 'flex',
               justifyContent: 'space-between',
@@ -249,8 +265,8 @@ export default function TrialBalance() {
             }}>
               <span>TOTAL</span>
               <div style={{ display: 'flex', gap: 16 }}>
-                <span>DR: {fmtPKR(totalDebit)}</span>
-                <span>CR: {fmtPKR(totalCredit)}</span>
+                <span style={{ color: '#34d399' }}>DR: {fmtPKR(totalDebit)}</span>
+                <span style={{ color: '#60a5fa' }}>CR: {fmtPKR(totalCredit)}</span>
               </div>
             </div>
           </div>
@@ -269,12 +285,14 @@ function SectionGroup({ section }) {
         <td
           colSpan={4}
           style={{
-            background: 'rgba(15, 110, 79, 0.06)',
+            background: 'var(--subtle, #f8fafc)',
             fontWeight: 700,
             fontSize: 12,
             color: 'var(--brand)',
-            padding: '6px 12px',
+            padding: '8px 12px',
             borderBottom: '1px solid var(--border)',
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
           }}
         >
           {section.name}
@@ -282,12 +300,12 @@ function SectionGroup({ section }) {
       </tr>
       {section.rows.map((row, i) => (
         <tr key={i}>
-          <td style={{ color: 'var(--text-secondary)', fontSize: 11 }}>{++seq}</td>
-          <td>{row.name}</td>
-          <td style={{ textAlign: 'right', color: row.debit > 0 ? 'var(--brand)' : 'var(--text-secondary)' }}>
+          <td className="text-muted text-xs">{++seq}</td>
+          <td className="text-sm font-medium">{row.name}</td>
+          <td className="num tabular font-semibold" style={{ color: row.debit > 0 ? 'var(--paid)' : 'var(--text-muted)' }}>
             {row.debit > 0 ? fmtPKR(row.debit) : '—'}
           </td>
-          <td style={{ textAlign: 'right', color: row.credit > 0 ? '#1B4B91' : 'var(--text-secondary)' }}>
+          <td className="num tabular font-semibold" style={{ color: row.credit > 0 ? '#3b82f6' : 'var(--text-muted)' }}>
             {row.credit > 0 ? fmtPKR(row.credit) : '—'}
           </td>
         </tr>

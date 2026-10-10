@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { reportsAPI, exportAPI, downloadBlob } from '../api/services';
 import toast from 'react-hot-toast';
-import { FileDown, FileSpreadsheet, CheckCircle, AlertTriangle, Sheet } from 'lucide-react';
+import { FileDown, FileSpreadsheet, CheckCircle, AlertTriangle, Sheet, Calendar, Wallet, Building2, TrendingUp } from 'lucide-react';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 function fmtPKR(n) {
   return `Rs ${parseFloat(n || 0).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -54,29 +55,41 @@ export default function BalanceSheet() {
   }
 
   return (
-    <div>
-      {/* Page header */}
-      <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Sheet size={20} style={{ color: 'var(--brand)' }} />
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Balance Sheet</h2>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-            <label style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 600 }}>As On Date:</label>
-            <input
-              type="date"
-              className="input"
-              value={asOn}
-              onChange={(e) => setAsOn(e.target.value)}
-              style={{ width: 150 }}
-            />
-            <button className="btn btn-outline lbl" onClick={handleExportPDF} disabled={exportingPdf || isLoading}>
+    <div className="space-y-4">
+      <PageHeader
+        title="Balance Sheet"
+        subtitle="Statement of financial position displaying real-time Assets, Liabilities, and Owner Equity"
+        badge="FINANCIAL POSITION"
+        badgeVariant="brand"
+        actions={
+          <div className="flex gap-2">
+            <button className="btn btn-outline btn-sm" onClick={handleExportPDF} disabled={exportingPdf || isLoading}>
               <FileDown size={14} /> {exportingPdf ? '...' : 'PDF'}
             </button>
-            <button className="btn btn-outline lbl" onClick={handleExportExcel} disabled={exportingExcel || isLoading}>
+            <button className="btn btn-outline btn-sm" onClick={handleExportExcel} disabled={exportingExcel || isLoading}>
               <FileSpreadsheet size={14} /> {exportingExcel ? '...' : 'Excel'}
             </button>
+          </div>
+        }
+      />
+
+      {/* Date Filter Bar */}
+      <div className="app-filter-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', width: '100%' }}>
+          <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1" style={{ marginBottom: 0 }}>
+              <Calendar size={13} /> As On Date:
+            </label>
+            <input
+              type="date"
+              className="form-input text-sm"
+              value={asOn}
+              onChange={(e) => setAsOn(e.target.value)}
+              style={{ width: 160 }}
+            />
+          </div>
+          <div className="text-xs font-semibold px-2.5 py-1 rounded-full bg-surface-alt text-muted ml-auto">
+            {assets.length + liabilities.length + equity.length} balance sheet line items
           </div>
         </div>
       </div>
@@ -84,73 +97,72 @@ export default function BalanceSheet() {
       {/* Balance check indicator */}
       {report && (
         <div
-          className="card"
           style={{
-            marginBottom: 16,
-            padding: '12px 20px',
+            padding: '12px 16px',
+            borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            background: isBalanced ? 'rgba(22, 101, 52, 0.08)' : 'rgba(180, 55, 43, 0.08)',
-            border: `1px solid ${isBalanced ? 'rgba(22, 101, 52, 0.25)' : 'rgba(180, 55, 43, 0.25)'}`,
+            background: isBalanced ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1px solid ${isBalanced ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
           }}
         >
           {isBalanced ? (
-            <CheckCircle size={20} style={{ color: '#166534', flexShrink: 0 }} />
+            <CheckCircle size={18} style={{ color: 'var(--paid)', flexShrink: 0 }} />
           ) : (
-            <AlertTriangle size={20} style={{ color: '#B4372B', flexShrink: 0 }} />
+            <AlertTriangle size={18} style={{ color: 'var(--alert)', flexShrink: 0 }} />
           )}
-          <span style={{ fontWeight: 600, fontSize: 13, color: isBalanced ? '#166534' : '#B4372B' }}>
+          <span style={{ fontWeight: 600, fontSize: 13, color: isBalanced ? 'var(--paid)' : 'var(--alert)' }}>
             {isBalanced
-              ? '✓ Balance Sheet is BALANCED — Assets = Liabilities + Equity'
-              : `⚠ Balance Sheet is NOT BALANCED — Difference: ${fmtPKR(difference)}`}
+              ? 'Balance Sheet is BALANCED — Total Assets equal Liabilities + Equity.'
+              : `Balance Sheet is NOT BALANCED — Difference: ${fmtPKR(difference)}`}
           </span>
         </div>
       )}
 
       {/* KPI Summary */}
-      <div className="kpi-row" style={{ marginBottom: 16 }}>
-        <div className="kpi-card">
-          <div className="kpi-label">Total Assets</div>
-          <div className="kpi-value" style={{ color: 'var(--brand)' }}>{fmtPKR(totalAssets)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Total Liabilities</div>
-          <div className="kpi-value" style={{ color: '#B4372B' }}>{fmtPKR(totalLiabilities)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Owner's Equity</div>
-          <div className="kpi-value" style={{ color: '#1B4B91' }}>{fmtPKR(totalEquity)}</div>
-        </div>
-      </div>
+      <KpiGrid cols={3}>
+        <KpiCard
+          title="Total Assets"
+          value={fmtPKR(totalAssets)}
+          caption="Current cash, banks, inventory & receivables"
+          icon={Wallet}
+          accentColor="emerald"
+          badge="ASSETS"
+        />
+        <KpiCard
+          title="Total Liabilities"
+          value={fmtPKR(totalLiabilities)}
+          caption="Supplier payables & outstanding obligations"
+          icon={Building2}
+          accentColor="rose"
+          badge="LIABILITIES"
+        />
+        <KpiCard
+          title="Owner's Equity"
+          value={fmtPKR(totalEquity)}
+          caption="Net retained capital & business equity"
+          icon={TrendingUp}
+          accentColor="blue"
+          badge="EQUITY"
+        />
+      </KpiGrid>
 
       {isLoading ? (
-        <>
-          <div className="kpi-row" style={{ marginBottom: 16 }}>
-            {[1,2,3].map(i => (
-              <div key={i} className="kpi-card">
-                <div className="skeleton skeleton-text" style={{ width: '55%', height: 12 }} />
-                <div className="skeleton skeleton-text" style={{ width: '80%', height: 24, marginTop: 8 }} />
-              </div>
-            ))}
+        <div className="grid-2">
+          <div className="app-table-card p-6">
+            <TableSkeleton cols={2} rows={5} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {[1,2].map(i => (
-              <div key={i} className="card" style={{ padding: '16px' }}>
-                <div className="skeleton skeleton-text" style={{ width: '40%', height: 16, marginBottom: 12 }} />
-                {Array.from({ length: 4 }).map((_, j) => (
-                  <div key={j} className="skeleton skeleton-text" style={{ height: 18, marginBottom: 8 }} />
-                ))}
-              </div>
-            ))}
+          <div className="app-table-card p-6">
+            <TableSkeleton cols={2} rows={5} />
           </div>
-        </>
+        </div>
       ) : (
         <>
           {/* Desktop: Side-by-side panels */}
           <div className="desktop-only" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Left: Assets */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="app-table-card" style={{ padding: 0, overflow: 'hidden' }}>
               <BSSection
                 title="ASSETS"
                 items={assets}
@@ -161,40 +173,40 @@ export default function BalanceSheet() {
             </div>
 
             {/* Right: Liabilities + Equity */}
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="app-table-card" style={{ padding: 0, overflow: 'hidden' }}>
               <BSSection
                 title="LIABILITIES"
                 items={liabilities}
                 total={totalLiabilities}
                 totalLabel="Total Liabilities"
-                color="#B4372B"
+                color="#dc2626"
               />
               <BSSection
                 title="EQUITY"
                 items={equity}
                 total={totalEquity}
                 totalLabel="Total Equity"
-                color="#1B4B91"
+                color="#2563eb"
               />
               {/* Grand total */}
               <div style={{
-                padding: '10px 16px',
-                background: 'var(--brand)',
+                padding: '12px 16px',
+                background: '#1e293b',
                 color: '#fff',
                 display: 'flex',
                 justifyContent: 'space-between',
                 fontWeight: 700,
                 fontSize: 13,
               }}>
-                <span>Liabilities + Equity</span>
-                <span>{fmtPKR(totalLE)}</span>
+                <span>Total Liabilities + Equity</span>
+                <span className="tabular font-bold" style={{ color: '#34d399' }}>{fmtPKR(totalLE)}</span>
               </div>
             </div>
           </div>
 
           {/* Mobile: Stacked */}
           <div className="mobile-only" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="app-table-card" style={{ padding: 0, overflow: 'hidden' }}>
               <BSSection
                 title="ASSETS"
                 items={assets}
@@ -204,41 +216,41 @@ export default function BalanceSheet() {
               />
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="app-table-card" style={{ padding: 0, overflow: 'hidden' }}>
               <BSSection
                 title="LIABILITIES"
                 items={liabilities}
                 total={totalLiabilities}
                 totalLabel="Total Liabilities"
-                color="#B4372B"
+                color="#dc2626"
               />
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="app-table-card" style={{ padding: 0, overflow: 'hidden' }}>
               <BSSection
                 title="EQUITY"
                 items={equity}
                 total={totalEquity}
                 totalLabel="Total Equity"
-                color="#1B4B91"
+                color="#2563eb"
               />
             </div>
 
             {/* Equation check */}
             <div className="card" style={{
               padding: '12px 14px',
-              background: 'var(--brand)',
+              background: '#1e293b',
               color: '#fff',
               fontWeight: 700,
               fontSize: 13,
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                 <span>Total Assets</span>
-                <span>{fmtPKR(totalAssets)}</span>
+                <span style={{ color: '#34d399' }}>{fmtPKR(totalAssets)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.85 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', opacity: 0.9 }}>
                 <span>Liabilities + Equity</span>
-                <span>{fmtPKR(totalLE)}</span>
+                <span style={{ color: '#60a5fa' }}>{fmtPKR(totalLE)}</span>
               </div>
             </div>
           </div>

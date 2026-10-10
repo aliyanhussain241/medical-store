@@ -6,7 +6,8 @@ import { useQuery } from '@tanstack/react-query';
 import { reportsAPI, exportAPI, downloadBlob } from '../api/services';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import toast from 'react-hot-toast';
-import { FileDown } from 'lucide-react';
+import { FileDown, Calendar, TrendingUp, TrendingDown, DollarSign, Percent, BarChart3 } from 'lucide-react';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK', { day: '2-digit', month: 'short' }) : '—'; }
@@ -38,69 +39,101 @@ export default function Reports() {
 
   const chartData = records.map((r) => ({
     date: fmtDate(r.reportDate),
-    Sales: parseFloat(r.totalSales),
-    Cost: parseFloat(r.totalCost),
-    Profit: parseFloat(r.totalProfit),
+    Sales: parseFloat(r.totalSales) || 0,
+    Cost: parseFloat(r.totalCost) || 0,
+    Profit: parseFloat(r.totalProfit) || 0,
   }));
 
   return (
-    <div>
-      <div className="page-header">
-        <h2 className="page-title">Profit & Loss Report</h2>
-        <div className="flex gap-8">
-          <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')}><FileDown size={13} /> PDF</button>
-          <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')}><FileDown size={13} /> Excel</button>
-        </div>
-      </div>
-
-      {/* Date filter */}
-      <div className="card card-body" style={{ marginBottom: 14 }}>
-        <div className="date-filter-row">
-          <div className="form-group">
-            <label className="form-label">From Date</label>
-            <input id="rep-from" type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
+    <div className="space-y-4">
+      <PageHeader
+        title="Profit & Loss Report"
+        subtitle="Revenue analysis, wholesale cost of goods sold, gross margin percentage, and daily trading profits"
+        badge="PROFIT & LOSS"
+        badgeVariant="brand"
+        actions={
+          <div className="flex gap-2">
+            <button className="btn btn-outline btn-sm" onClick={() => exportDoc('pdf')} title="Export PDF">
+              <FileDown size={14} /> PDF
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={() => exportDoc('excel')} title="Export Excel">
+              <FileDown size={14} /> Excel
+            </button>
           </div>
-          <div className="form-group">
-            <label className="form-label">To Date</label>
-            <input id="rep-to" type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} />
+        }
+      />
+
+      {/* Date filter bar */}
+      <div className="app-filter-bar">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, alignItems: 'flex-end', width: '100%' }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Calendar size={12} /> From Date
+            </label>
+            <input id="rep-from" type="date" className="form-input text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Calendar size={12} /> To Date
+            </label>
+            <input id="rep-to" type="date" className="form-input text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="kpi-grid" style={{ marginBottom: 14 }}>
-        <div className="kpi-card brand">
-          <div className="kpi-label">Total Sales</div>
-          <div className="kpi-value tabular">{pkr(summary.totalSales)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Total Cost</div>
-          <div className="kpi-value tabular color-alert">{pkr(summary.totalCost)}</div>
-        </div>
-        <div className="kpi-card brand">
-          <div className="kpi-label">Gross Profit</div>
-          <div className="kpi-value tabular">{pkr(summary.totalProfit)}</div>
-        </div>
-        <div className="kpi-card">
-          <div className="kpi-label">Profit Margin</div>
-          <div className="kpi-value">{summary.profitMargin || '0.0'}%</div>
-        </div>
-      </div>
+      <KpiGrid cols={4}>
+        <KpiCard
+          title="Total Sales"
+          value={pkr(summary.totalSales)}
+          caption="Gross invoiced revenue"
+          icon={TrendingUp}
+          accentColor="brand"
+          badge="REVENUE"
+        />
+        <KpiCard
+          title="Total Cost"
+          value={pkr(summary.totalCost)}
+          caption="Purchase cost of items sold"
+          icon={TrendingDown}
+          accentColor="rose"
+          badge="COGS"
+        />
+        <KpiCard
+          title="Gross Profit"
+          value={pkr(summary.totalProfit)}
+          caption="Sales minus cost of goods sold"
+          icon={DollarSign}
+          accentColor={parseFloat(summary.totalProfit) >= 0 ? 'emerald' : 'rose'}
+          badge={parseFloat(summary.totalProfit) >= 0 ? 'PROFIT' : 'LOSS'}
+        />
+        <KpiCard
+          title="Profit Margin"
+          value={`${summary.profitMargin || '0.0'}%`}
+          caption="Gross return on turnover"
+          icon={Percent}
+          accentColor="blue"
+          badge="MARGIN"
+        />
+      </KpiGrid>
 
       {/* Bar chart */}
       {chartData.length > 0 && (
-        <div className="card" style={{ marginBottom: 14 }}>
-          <div className="card-header">Daily Sales vs. Cost vs. Profit</div>
-          <div className="card-body">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={chartData} margin={{ top: 4, right: 12, left: 12, bottom: 0 }}>
+        <div className="app-table-card">
+          <div className="flex items-center justify-between p-3 border-b border-border bg-subtle">
+            <span className="font-semibold text-sm">Daily Sales vs. Cost vs. Gross Profit</span>
+            <span className="text-xs text-muted font-medium">{records.length} trading days</span>
+          </div>
+          <div className="p-4" style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 8, right: 12, left: 12, bottom: 0 }}>
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} width={80} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip formatter={(v) => `Rs ${v.toLocaleString('en-PK', { minimumFractionDigits: 2 })}`} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Sales" fill="#1B4B91" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Cost" fill="#B4372B" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="Profit" fill="#0F6E4F" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="Sales" fill="#0284c7" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Cost" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Profit" fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -108,52 +141,70 @@ export default function Reports() {
       )}
 
       {/* Table */}
-      <div className="card">
-        <div className="card-header">
-          Daily Breakdown
-          <span className="text-muted text-sm">{records.length} days</span>
+      <div className="app-table-card">
+        <div className="flex items-center justify-between p-3 border-b border-border bg-subtle">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">Daily Breakdown Statement</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-alt font-medium text-muted">
+              {records.length} days
+            </span>
+          </div>
         </div>
-        <div className="data-table-wrap" style={{ border: 'none' }}>
+
+        <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Date</th>
-                <th className="num">Total Sales</th>
-                <th className="num">Total Cost</th>
-                <th className="num">Gross Profit</th>
-                <th className="num">Margin %</th>
+                <th style={{ width: 120 }}>Date</th>
+                <th className="num" style={{ width: 140 }}>Total Sales</th>
+                <th className="num" style={{ width: 140 }}>Total Cost</th>
+                <th className="num" style={{ width: 140 }}>Gross Profit</th>
+                <th className="num" style={{ width: 110 }}>Margin %</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32 }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                <TableSkeleton cols={5} rows={6} />
               ) : records.length === 0 ? (
-                <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>No sales data for this period</td></tr>
-              ) : records.map((r) => {
-                const margin = parseFloat(r.totalSales) > 0
-                  ? ((parseFloat(r.totalProfit) / parseFloat(r.totalSales)) * 100).toFixed(1)
-                  : '0.0';
-                return (
-                  <tr key={r.id}>
-                    <td>{fmtDate(r.reportDate)}</td>
-                    <td className="num tabular">{pkr(r.totalSales)}</td>
-                    <td className="num tabular">{pkr(r.totalCost)}</td>
-                    <td className="num tabular" style={{ fontWeight: 600, color: parseFloat(r.totalProfit) > 0 ? 'var(--brand)' : 'var(--alert)' }}>
-                      {pkr(r.totalProfit)}
-                    </td>
-                    <td className="num tabular">{margin}%</td>
-                  </tr>
-                );
-              })}
+                <tr>
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState
+                      icon={BarChart3}
+                      title="No sales data for this period"
+                      description="No invoice transactions recorded in the selected date range to calculate gross profit."
+                    />
+                  </td>
+                </tr>
+              ) : (
+                records.map((r) => {
+                  const margin = parseFloat(r.totalSales) > 0
+                    ? ((parseFloat(r.totalProfit) / parseFloat(r.totalSales)) * 100).toFixed(1)
+                    : '0.0';
+                  const profit = parseFloat(r.totalProfit) || 0;
+                  return (
+                    <tr key={r.id}>
+                      <td className="text-sm font-medium">{fmtDate(r.reportDate)}</td>
+                      <td className="num tabular font-semibold text-text">{pkr(r.totalSales)}</td>
+                      <td className="num tabular font-medium text-muted">{pkr(r.totalCost)}</td>
+                      <td className="num tabular font-bold" style={{ color: profit >= 0 ? 'var(--paid)' : 'var(--alert)' }}>
+                        {pkr(profit)}
+                      </td>
+                      <td className="num tabular font-semibold" style={{ color: profit >= 0 ? 'var(--paid)' : 'var(--alert)' }}>
+                        {margin}%
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
             {records.length > 0 && (
               <tfoot>
-                <tr style={{ background: '#F1F4F2', fontWeight: 700 }}>
-                  <td>TOTAL</td>
-                  <td className="num tabular">{pkr(summary.totalSales)}</td>
-                  <td className="num tabular">{pkr(summary.totalCost)}</td>
-                  <td className="num tabular" style={{ color: 'var(--brand)' }}>{pkr(summary.totalProfit)}</td>
-                  <td className="num tabular">{summary.profitMargin}%</td>
+                <tr style={{ background: '#1e293b', color: '#fff', fontWeight: 700 }}>
+                  <td style={{ color: '#fff' }}>TOTAL FOR PERIOD</td>
+                  <td className="num tabular" style={{ color: '#fff' }}>{pkr(summary.totalSales)}</td>
+                  <td className="num tabular" style={{ color: '#f87171' }}>{pkr(summary.totalCost)}</td>
+                  <td className="num tabular" style={{ color: '#34d399' }}>{pkr(summary.totalProfit)}</td>
+                  <td className="num tabular" style={{ color: '#60a5fa' }}>{summary.profitMargin}%</td>
                 </tr>
               </tfoot>
             )}

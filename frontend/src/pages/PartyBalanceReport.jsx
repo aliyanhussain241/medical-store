@@ -8,7 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import { reportsAPI, customersAPI, exportAPI, downloadBlob, citiesAPI } from '../api/services';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Printer, FileDown, FileSpreadsheet, Filter, MapPin, Users, DollarSign } from 'lucide-react';
+import { Printer, FileDown, FileSpreadsheet, Filter, MapPin, Users, DollarSign, Calendar } from 'lucide-react';
+import { PageHeader, KpiGrid, KpiCard } from '../components/ui';
 
 function fmtNumber(n) {
   return parseFloat(n || 0).toLocaleString('en-PK', {
@@ -194,68 +195,97 @@ export default function PartyBalanceReport() {
       `}</style>
 
       {/* Control Bar & Header */}
-      <div className="no-print">
-        <div className="page-header flex justify-between items-center flex-wrap gap-12">
-          <div>
-            <h2 className="page-title">Party Wise Balance Report</h2>
-            <p className="text-muted text-sm">Customer balances grouped by area territory with running subtotals</p>
-          </div>
+      <div className="no-print space-y-4 mb-4">
+        <PageHeader
+          title="Party Wise Balance Report"
+          subtitle="Customer ledger balances grouped by territory area with running debit/credit subtotals"
+          badge="TERRITORY AUDIT"
+          badgeVariant="brand"
+          actions={
+            <div className="flex gap-2 flex-wrap">
+              <button
+                id="print-report-btn"
+                className="btn btn-outline btn-sm"
+                onClick={handlePrint}
+                disabled={isLoading || areaGroups.length === 0}
+              >
+                <Printer size={14} /> Print
+              </button>
+              <button
+                id="export-pdf-btn"
+                className="btn btn-outline btn-sm"
+                onClick={handleExportPDF}
+                disabled={exportingPdf || isLoading || areaGroups.length === 0}
+              >
+                <FileDown size={14} /> {exportingPdf ? 'Exporting...' : 'PDF'}
+              </button>
+              <button
+                id="export-excel-btn"
+                className="btn btn-outline btn-sm"
+                onClick={handleExportExcel}
+                disabled={exportingExcel || isLoading || areaGroups.length === 0}
+              >
+                <FileSpreadsheet size={14} /> {exportingExcel ? 'Exporting...' : 'Excel'}
+              </button>
+            </div>
+          }
+        />
 
-          <div className="flex gap-8 flex-wrap">
-            <button
-              id="print-report-btn"
-              className="btn btn-outline"
-              onClick={handlePrint}
-              disabled={isLoading || areaGroups.length === 0}
-            >
-              <Printer size={15} /> Print
-            </button>
-            <button
-              id="export-pdf-btn"
-              className="btn btn-outline"
-              onClick={handleExportPDF}
-              disabled={exportingPdf || isLoading || areaGroups.length === 0}
-            >
-              <FileDown size={15} /> {exportingPdf ? 'Exporting...' : 'PDF'}
-            </button>
-            <button
-              id="export-excel-btn"
-              className="btn btn-outline"
-              onClick={handleExportExcel}
-              disabled={exportingExcel || isLoading || areaGroups.length === 0}
-            >
-              <FileSpreadsheet size={15} /> {exportingExcel ? 'Exporting...' : 'Excel'}
-            </button>
-          </div>
-        </div>
+        {/* Quick KPI Stat Cards */}
+        <KpiGrid cols={3}>
+          <KpiCard
+            title={`Total Balance (${filter})`}
+            value={`Rs ${fmtNumber(reportData.grandTotal)}`}
+            caption={filter === 'DR' ? 'Total receivables across areas' : filter === 'CR' ? 'Total advances / credits' : 'Net balance across all accounts'}
+            icon={DollarSign}
+            accentColor={filter === 'DR' ? 'rose' : 'emerald'}
+            badge={filter}
+          />
+          <KpiCard
+            title="Parties Listed"
+            value={reportData.totalCount}
+            caption="Customer accounts in report"
+            icon={Users}
+            accentColor="brand"
+            badge="PARTIES"
+          />
+          <KpiCard
+            title="Active Areas"
+            value={reportData.areaCount}
+            caption="Districts and market areas"
+            icon={MapPin}
+            accentColor="blue"
+            badge="AREAS"
+          />
+        </KpiGrid>
 
         {/* Filter Controls Bar */}
-        <div className="card" style={{ padding: '14px 18px', marginTop: 14 }}>
-          <div className="flex gap-16 items-center flex-wrap">
+        <div className="app-filter-bar">
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', width: '100%' }}>
             {/* As On Date */}
-            <div className="flex items-center gap-8">
-              <label className="form-label" style={{ marginBottom: 0, fontWeight: 600, fontSize: 13 }}>
-                As On:
+            <div className="flex items-center gap-2">
+              <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1" style={{ marginBottom: 0 }}>
+                <Calendar size={13} /> As On:
               </label>
               <input
                 id="filter-as-on"
                 type="date"
-                className="form-input"
-                style={{ width: 145, padding: '6px 10px' }}
+                className="form-input text-sm"
+                style={{ width: 150 }}
                 value={asOn}
                 onChange={(e) => setAsOn(e.target.value)}
               />
             </div>
 
             {/* Balance Filter */}
-            <div className="flex items-center gap-8">
-              <label className="form-label" style={{ marginBottom: 0, fontWeight: 600, fontSize: 13 }}>
+            <div className="flex items-center gap-2">
+              <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted" style={{ marginBottom: 0 }}>
                 Filter:
               </label>
               <select
                 id="filter-balance-type"
-                className="form-input"
-                style={{ width: 195, padding: '6px 10px' }}
+                className="form-select text-sm font-medium"
+                style={{ width: 210 }}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
               >
@@ -266,14 +296,14 @@ export default function PartyBalanceReport() {
             </div>
 
             {/* Area Filter */}
-            <div className="flex items-center gap-8">
-              <label className="form-label" style={{ marginBottom: 0, fontWeight: 600, fontSize: 13 }}>
+            <div className="flex items-center gap-2">
+              <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted" style={{ marginBottom: 0 }}>
                 Area:
               </label>
               <select
                 id="filter-area"
-                className="form-input"
-                style={{ width: 175, padding: '6px 10px' }}
+                className="form-select text-sm font-medium"
+                style={{ width: 190 }}
                 value={selectedArea}
                 onChange={(e) => setSelectedArea(e.target.value)}
               >
@@ -287,41 +317,11 @@ export default function PartyBalanceReport() {
             </div>
 
             {isFetching && (
-              <div className="flex items-center gap-6 text-muted text-sm ml-auto">
+              <div className="flex items-center gap-2 text-muted text-xs ml-auto font-medium">
                 <span className="spinner" style={{ width: 14, height: 14 }} />
                 <span>Updating report...</span>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Quick KPI Stat Cards */}
-        <div className="grid-3" style={{ marginTop: 14, gap: 14 }}>
-          <div className="card" style={{ padding: '14px 18px' }}>
-            <div className="text-muted text-xs font-medium uppercase tracking-wider flex items-center gap-6">
-              <DollarSign size={14} className="text-primary" /> Total Balance ({filter})
-            </div>
-            <div className="tabular" style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>
-              Rs {fmtNumber(reportData.grandTotal)}
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: '14px 18px' }}>
-            <div className="text-muted text-xs font-medium uppercase tracking-wider flex items-center gap-6">
-              <Users size={14} className="text-primary" /> Parties Listed
-            </div>
-            <div className="tabular" style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>
-              {reportData.totalCount}
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: '14px 18px' }}>
-            <div className="text-muted text-xs font-medium uppercase tracking-wider flex items-center gap-6">
-              <MapPin size={14} className="text-primary" /> Active Areas
-            </div>
-            <div className="tabular" style={{ fontSize: 22, fontWeight: 700, marginTop: 4, color: 'var(--text-primary)' }}>
-              {reportData.areaCount}
-            </div>
           </div>
         </div>
       </div>
