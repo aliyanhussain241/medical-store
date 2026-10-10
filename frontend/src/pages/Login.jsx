@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/services';
 import toast from 'react-hot-toast';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { Lock, Mail, ShieldCheck } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
@@ -34,25 +35,30 @@ export default function Login() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <div className="auth-card" style={{ maxWidth: 420 }}>
         <div className="auth-logo">
-          <h1>MedStore</h1>
-          <p>Wholesale Medical Store Management</p>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 44, height: 44, borderRadius: 12, background: 'rgba(15, 110, 79, 0.12)', border: '1px solid rgba(15, 110, 79, 0.25)', color: 'var(--brand)', marginBottom: 12 }}>
+            <span style={{ fontSize: 24, fontWeight: 800, lineHeight: 1 }}>+</span>
+          </div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: '0 0 4px 0' }}>MedStore</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Wholesale Medical Store Management</p>
         </div>
 
         <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
           {error && (
-            <div style={{ background: '#FEE2E2', color: '#B4372B', padding: '10px 12px', borderRadius: 6, marginBottom: 14, fontSize: 13 }}>
+            <div style={{ background: '#FEE2E2', color: '#B4372B', padding: '10px 14px', borderRadius: 8, marginBottom: 16, fontSize: 13, border: '1px solid #FECACA', fontWeight: 500 }}>
               {error}
             </div>
           )}
 
           <div className="form-group">
-            <label className="form-label">Email Address</label>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Mail size={12} /> Email Address
+            </label>
             <input
               id="login-email"
               type="email"
-              className="form-input"
+              className="form-input text-sm"
               placeholder="your@email.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -62,11 +68,13 @@ export default function Login() {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Password</label>
+            <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
+              <Lock size={12} /> Password
+            </label>
             <input
               id="login-password"
               type="password"
-              className="form-input"
+              className="form-input text-sm"
               placeholder="••••••••"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -74,19 +82,27 @@ export default function Login() {
             />
           </div>
 
-          <button id="login-btn" type="submit" className="btn btn-brand w-full" disabled={loading}
-            style={{ width: '100%', justifyContent: 'center', marginTop: 8, padding: '10px' }}>
-            {loading ? <span className="spinner" style={{ borderTopColor: '#fff' }} /> : 'Sign In'}
+          <button
+            id="login-btn"
+            type="submit"
+            className="btn btn-brand w-full"
+            disabled={loading}
+            style={{ width: '100%', justifyContent: 'center', marginTop: 12, padding: '11px', fontSize: 14, fontWeight: 600 }}
+          >
+            {loading ? <span className="spinner" style={{ borderTopColor: '#fff' }} /> : 'Sign In to Workspace'}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--text-muted)' }}>
-          New account? <Link to="/signup" style={{ color: 'var(--accent)', fontWeight: 600 }}>Create one</Link>
+        <p style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--text-muted)' }}>
+          New account? <Link to="/signup" style={{ color: 'var(--brand)', fontWeight: 600 }}>Create an account</Link>
         </p>
 
-        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 11, color: '#aaa' }}>
-          Demo: demo@medicalstore.app &nbsp;|&nbsp; Demo@12345
-        </p>
+        <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, background: 'var(--subtle, #f8fafc)', padding: '5px 10px', borderRadius: 6, color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+            <ShieldCheck size={13} style={{ color: 'var(--brand)' }} />
+            Demo: demo@medicalstore.app &nbsp;|&nbsp; Demo@12345
+          </span>
+        </div>
       </div>
     </div>
   );
