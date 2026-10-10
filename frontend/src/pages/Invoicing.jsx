@@ -824,8 +824,8 @@ export default function Invoicing() {
           </div>
 
           {/* Product search */}
-          <div className="card" style={{ borderTop: '3.5px solid var(--accent)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-            <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8, background: '#F8FAFC', padding: '12px 18px' }}>
+          <div className="card" style={{ borderTop: '3.5px solid var(--accent)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'visible', position: 'relative', zIndex: 40 }}>
+            <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8, background: '#F8FAFC', padding: '12px 18px', borderTopLeftRadius: 11, borderTopRightRadius: 11 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <SectionHeader icon={ShoppingBag} label="2. Add Products & Line Items" color="var(--accent)" />
                 <button
@@ -856,8 +856,8 @@ export default function Invoicing() {
                 Press <kbd style={{ fontWeight: 700, color: 'var(--text)' }}>F2</kbd> to search
               </span>
             </div>
-            <div className="card-body" style={{ paddingBottom: 0 }}>
-              <div className="search-input-wrap" style={{ maxWidth: '100%', marginBottom: 10 }}>
+            <div className="card-body" style={{ padding: '16px 18px', overflow: 'visible', position: 'relative' }}>
+              <div className="search-input-wrap" style={{ maxWidth: '100%', marginBottom: 0, position: 'relative' }}>
                 <Search size={14} />
                 <input
                   id="prod-search-inv"
@@ -898,78 +898,85 @@ export default function Invoicing() {
                     }
                   }}
                 />
-              </div>
-              {products.length > 0 && productSearch && (
-                <div
-                  id="prod-results-container"
-                  style={{
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                    maxHeight: 220,
-                    overflowY: 'auto',
-                    marginBottom: 10,
-                  }}
-                >
-                  {products.map((p, pIdx) => {
-                    const isSelected = pIdx === highlightedProductIdx;
-                    const tp = parseFloat(p.tradePrice || p.purchasePrice || 0);
-                    const rp = parseFloat(p.salePrice || 0);
-                    return (
-                      <div
-                        key={p.id}
-                        id={`prod-result-${pIdx}`}
-                        style={{
-                          padding: '10px 12px',
-                          minHeight: 44,
-                          cursor: 'pointer',
-                          borderBottom: '1px solid var(--border)',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: 13,
-                          background: isSelected ? 'rgba(37, 99, 235, 0.09)' : undefined,
-                          borderLeft: isSelected ? '3px solid #2563eb' : '3px solid transparent',
-                          transition: 'background 100ms ease',
-                        }}
-                        onClick={() => addProduct(p)}
-                        onMouseEnter={() => setHighlightedProductIdx(pIdx)}
-                      >
-                        <div>
-                          <span style={{ fontWeight: isSelected ? 700 : 600 }}>{p.productName}</span>
-                          <span className="text-muted" style={{ marginLeft: 8 }}>
-                            {p.category}
-                          </span>
-                          {activeOffers[p.id] && (
-                            <span
-                              className={`badge ${getOfferBadgeClass(activeOffers[p.id].offerType)}`}
-                              style={{ marginLeft: 8, fontSize: 10, textTransform: 'none' }}
-                            >
-                              Offer: {activeOffers[p.id].offerLabel}
+
+                {products.length > 0 && productSearch && (
+                  <div
+                    id="prod-results-container"
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      right: 0,
+                      background: '#ffffff',
+                      border: '1.5px solid var(--border)',
+                      borderRadius: 8,
+                      boxShadow: '0 12px 28px -4px rgba(0, 0, 0, 0.22), 0 8px 12px -6px rgba(0, 0, 0, 0.12)',
+                      maxHeight: 280,
+                      overflowY: 'auto',
+                      zIndex: 9999,
+                    }}
+                  >
+                    {products.map((p, pIdx) => {
+                      const isSelected = pIdx === highlightedProductIdx;
+                      const tp = parseFloat(p.tradePrice || p.purchasePrice || 0);
+                      const rp = parseFloat(p.salePrice || 0);
+                      return (
+                        <div
+                          key={p.id}
+                          id={`prod-result-${pIdx}`}
+                          style={{
+                            padding: '10px 14px',
+                            minHeight: 44,
+                            cursor: 'pointer',
+                            borderBottom: '1px solid var(--border)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            fontSize: 13,
+                            background: isSelected ? 'rgba(37, 99, 235, 0.09)' : undefined,
+                            borderLeft: isSelected ? '3.5px solid #2563eb' : '3.5px solid transparent',
+                            transition: 'background 100ms ease',
+                          }}
+                          onClick={() => addProduct(p)}
+                          onMouseEnter={() => setHighlightedProductIdx(pIdx)}
+                        >
+                          <div>
+                            <span style={{ fontWeight: isSelected ? 700 : 600 }}>{p.productName}</span>
+                            <span className="text-muted" style={{ marginLeft: 8 }}>
+                              {p.category}
                             </span>
-                          )}
-                        </div>
-                        <div style={{ textAlign: 'right', fontSize: 12 }}>
-                          <div
-                            style={{
-                              color:
-                                parseFloat(p.stockQty) <= parseFloat(p.minStockAlert)
-                                  ? 'var(--alert)'
-                                  : 'var(--brand)',
-                              fontWeight: 600,
-                            }}
-                          >
-                            Stock: {parseFloat(p.stockQty)} {p.unit}
+                            {activeOffers[p.id] && (
+                              <span
+                                className={`badge ${getOfferBadgeClass(activeOffers[p.id].offerType)}`}
+                                style={{ marginLeft: 8, fontSize: 10, textTransform: 'none' }}
+                              >
+                                Offer: {activeOffers[p.id].offerLabel}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-muted">
-                            <span style={{ color: '#2563eb', fontWeight: 600 }}>TP: {pkr(tp)}</span>
-                            <span style={{ marginLeft: 8 }}>Retail: {pkr(rp)}</span>
+                          <div style={{ textAlign: 'right', fontSize: 12 }}>
+                            <div
+                              style={{
+                                color:
+                                  parseFloat(p.stockQty) <= parseFloat(p.minStockAlert)
+                                    ? 'var(--alert)'
+                                    : 'var(--brand)',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Stock: {parseFloat(p.stockQty)} {p.unit}
+                            </div>
+                            <div className="text-muted">
+                              <span style={{ color: '#2563eb', fontWeight: 600 }}>TP: {pkr(tp)}</span>
+                              <span style={{ marginLeft: 8 }}>Retail: {pkr(rp)}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

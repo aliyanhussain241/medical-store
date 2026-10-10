@@ -259,8 +259,8 @@ export default function Purchasing() {
               </div>
             </div>
 
-            <div className="card" style={{ borderTop: '3.5px solid var(--brand)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-              <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8, background: '#F8FAFC', padding: '12px 18px' }}>
+            <div className="card" style={{ borderTop: '3.5px solid var(--brand)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'visible', position: 'relative', zIndex: 40 }}>
+              <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8, background: '#F8FAFC', padding: '12px 18px', borderTopLeftRadius: 11, borderTopRightRadius: 11 }}>
                 <SectionHeader icon={ShoppingCart} label="2. Add Products & Quantities" color="var(--brand)" />
                 <button
                   type="button"
@@ -286,8 +286,8 @@ export default function Purchasing() {
                   <Plus size={13} /> New Product (On The Fly)
                 </button>
               </div>
-              <div className="card-body" style={{ paddingBottom: 0 }}>
-                <div className="search-input-wrap" style={{ maxWidth: '100%', marginBottom: 10 }}>
+              <div className="card-body" style={{ padding: '16px 18px', overflow: 'visible', position: 'relative', borderBottomLeftRadius: 11, borderBottomRightRadius: 11 }}>
+                <div className="search-input-wrap" style={{ maxWidth: '100%', marginBottom: 0, position: 'relative' }}>
                   <Search size={14} />
                   <input
                     id="po-prod-search"
@@ -328,73 +328,110 @@ export default function Purchasing() {
                       }
                     }}
                   />
-                </div>
-                {productSearch.trim() && products.length === 0 && (
-                  <div style={{ padding: '10px 12px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 6, marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
-                      No product matching "<strong>{productSearch}</strong>"
-                    </span>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      style={{ padding: '3px 10px', fontSize: 11 }}
-                      onClick={() => {
-                        setNewProdForm({
-                          productName: productSearch.trim(),
-                          genericName: '',
-                          companyId: companyId || companies[0]?.id || '',
-                          category: 'Medicine',
-                          unit: 'Pack',
-                          packing: '',
-                          piecesPerPack: 1,
-                          purchasePrice: '',
-                          salePrice: '',
-                          minStockAlert: 5,
-                        });
-                        setNewProductModal(true);
+
+                  {productSearch.trim() && products.length === 0 && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 4px)',
+                        left: 0,
+                        right: 0,
+                        background: '#ffffff',
+                        border: '1.5px solid var(--border)',
+                        borderRadius: 8,
+                        boxShadow: '0 12px 28px -4px rgba(0, 0, 0, 0.22), 0 8px 12px -6px rgba(0, 0, 0, 0.12)',
+                        padding: '12px 16px',
+                        zIndex: 9999,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
                       }}
                     >
-                      <Plus size={12} /> Add "{productSearch.trim()}" On The Fly
-                    </button>
-                  </div>
-                )}
-                {products.length > 0 && productSearch && (
-                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, maxHeight: 180, overflowY: 'auto', marginBottom: 10 }}>
-                    {products.map((p, pIdx) => {
-                      const isSelected = pIdx === highlightedProductIdx;
-                      return (
-                        <div
-                          key={p.id}
-                          style={{
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid var(--border)',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: 13,
-                            background: isSelected ? 'rgba(37, 99, 235, 0.09)' : undefined,
-                            borderLeft: isSelected ? '3px solid #2563eb' : '3px solid transparent',
-                          }}
-                          onClick={() => {
-                            addProduct(p);
-                            setProductSearch('');
-                            setTimeout(() => {
-                              const lastQty = document.querySelector('.po-qty-input-last');
-                              if (lastQty) { lastQty.focus(); lastQty.select(); }
-                            }, 60);
-                          }}
-                          onMouseEnter={() => setHighlightedProductIdx(pIdx)}
-                        >
-                          <div>
-                            <span style={{ fontWeight: isSelected ? 700 : 600 }}>{p.productName}</span>
-                            {p.packing && <span className="text-muted" style={{ fontSize: 11, marginLeft: 6 }}>({p.packing})</span>}
+                      <span style={{ fontSize: 12, color: '#64748b' }}>
+                        No product matching "<strong>{productSearch}</strong>"
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        style={{ padding: '3px 10px', fontSize: 11 }}
+                        onClick={() => {
+                          setNewProdForm({
+                            productName: productSearch.trim(),
+                            genericName: '',
+                            companyId: companyId || companies[0]?.id || '',
+                            category: 'Medicine',
+                            unit: 'Pack',
+                            packing: '',
+                            piecesPerPack: 1,
+                            purchasePrice: '',
+                            salePrice: '',
+                            minStockAlert: 5,
+                          });
+                          setNewProductModal(true);
+                        }}
+                      >
+                        <Plus size={12} /> Add "{productSearch.trim()}" On The Fly
+                      </button>
+                    </div>
+                  )}
+
+                  {products.length > 0 && productSearch && (
+                    <div
+                      id="po-prod-results-container"
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 4px)',
+                        left: 0,
+                        right: 0,
+                        background: '#ffffff',
+                        border: '1.5px solid var(--border)',
+                        borderRadius: 8,
+                        boxShadow: '0 12px 28px -4px rgba(0, 0, 0, 0.22), 0 8px 12px -6px rgba(0, 0, 0, 0.12)',
+                        maxHeight: 280,
+                        overflowY: 'auto',
+                        zIndex: 9999,
+                      }}
+                    >
+                      {products.map((p, pIdx) => {
+                        const isSelected = pIdx === highlightedProductIdx;
+                        return (
+                          <div
+                            key={p.id}
+                            id={`po-prod-result-${pIdx}`}
+                            style={{
+                              padding: '10px 14px',
+                              minHeight: 44,
+                              cursor: 'pointer',
+                              borderBottom: '1px solid var(--border)',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontSize: 13,
+                              background: isSelected ? 'rgba(37, 99, 235, 0.09)' : undefined,
+                              borderLeft: isSelected ? '3.5px solid #2563eb' : '3.5px solid transparent',
+                              transition: 'background 100ms ease',
+                            }}
+                            onClick={() => {
+                              addProduct(p);
+                              setProductSearch('');
+                              setTimeout(() => {
+                                const lastQty = document.querySelector('.po-qty-input-last');
+                                if (lastQty) { lastQty.focus(); lastQty.select(); }
+                              }, 60);
+                            }}
+                            onMouseEnter={() => setHighlightedProductIdx(pIdx)}
+                          >
+                            <div>
+                              <span style={{ fontWeight: isSelected ? 700 : 600 }}>{p.productName}</span>
+                              {p.packing && <span className="text-muted" style={{ fontSize: 11, marginLeft: 6 }}>({p.packing})</span>}
+                            </div>
+                            <span className="text-muted">{pkr(p.purchasePrice)}</span>
                           </div>
-                          <span className="text-muted">{pkr(p.purchasePrice)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

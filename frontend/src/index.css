@@ -2208,7 +2208,7 @@ th.num,
   border-radius: 12px;
   border: 1.5px solid var(--border);
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  overflow: hidden;
+  overflow: visible;
 }
 .app-card-header {
   display: flex;
@@ -2221,24 +2221,31 @@ th.num,
   font-size: 0.85rem;
   font-weight: 700;
   color: var(--text);
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
 }
 .app-card-body {
   padding: 16px 18px;
+  overflow: visible;
+}
+.app-card-body:last-child {
+  border-bottom-left-radius: 11px;
+  border-bottom-right-radius: 11px;
 }
 
 .app-table-card {
   background: #fff;
   border-radius: 12px;
   border: 1.5px solid var(--border);
-  overflow-x: auto;
-  overflow-y: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
 .app-table-card .data-table-wrap {
   border: none;
-  border-radius: 0;
+  border-radius: 11px;
   box-shadow: none;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .app-table-card .data-table th {
   background: #F8FAFC;
