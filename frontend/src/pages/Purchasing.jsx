@@ -6,8 +6,9 @@ import useDebounce from '../utils/useDebounce';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI, productsAPI, purchasesAPI, bankAccountsAPI } from '../api/services';
 import toast from 'react-hot-toast';
-import { Plus, Search, Trash2, X, DollarSign, Landmark } from 'lucide-react';
+import { Plus, Search, Trash2, X, DollarSign, Landmark, Building2, ShoppingCart, Receipt, History, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useBusinessConfig } from '../context/BusinessConfigContext';
+import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
 function calcLine(qty, price, disc) {
@@ -15,8 +16,7 @@ function calcLine(qty, price, disc) {
   return q * p * (1 - d / 100);
 }
 function statusBadge(s) {
-  const map = { PAID: 'paid', PENDING: 'pending', PARTIAL: 'partial' };
-  return <span className={`badge badge-${map[s] || 'pending'}`}>{s}</span>;
+  return <PillBadge variant={s}>{s}</PillBadge>;
 }
 function fmtDate(d) { return new Date(d).toLocaleDateString('en-PK'); }
 
@@ -188,21 +188,40 @@ export default function Purchasing() {
 
   return (
     <div>
-      <div className="page-header">
-        <h2 className="page-title">Purchasing</h2>
-      </div>
+      <PageHeader
+        title="Purchasing"
+        subtitle="Distributor purchase orders, stock replenishment & procurement history"
+        badge={tab === 'new' ? 'New Order' : 'History Log'}
+      />
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
-        <button id="tab-new-po" style={tabStyle('new')} onClick={() => setTab('new')}>New Purchase Order</button>
-        <button id="tab-history" style={tabStyle('history')} onClick={() => setTab('history')}>Purchase History</button>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+        <button
+          id="tab-new-po"
+          type="button"
+          className={`btn btn-sm ${tab === 'new' ? 'btn-primary' : 'btn-outline'}`}
+          style={{ borderRadius: 20, padding: '6px 16px', fontWeight: 600 }}
+          onClick={() => setTab('new')}
+        >
+          <ShoppingCart size={13} /> New Purchase Order
+        </button>
+        <button
+          id="tab-history"
+          type="button"
+          className={`btn btn-sm ${tab === 'history' ? 'btn-primary' : 'btn-outline'}`}
+          style={{ borderRadius: 20, padding: '6px 16px', fontWeight: 600 }}
+          onClick={() => setTab('history')}
+        >
+          <History size={13} /> Purchase History ({history.length})
+        </button>
       </div>
 
       {tab === 'new' ? (
         <div className="pos-layout">
           <div className="pos-left">
-            <div className="card card-body">
-              <div className="grid-2">
+            <div className="card" style={{ borderTop: '3.5px solid var(--accent)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', padding: '16px 18px' }}>
+              <SectionHeader icon={Building2} label="1. Select Company / Distributor" color="var(--accent)" />
+              <div className="grid-2" style={{ marginTop: 10 }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Company / Distributor *</label>
                   <select
@@ -240,9 +259,9 @@ export default function Purchasing() {
               </div>
             </div>
 
-            <div className="card">
-              <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ fontWeight: 700 }}>Add Products</span>
+            <div className="card" style={{ borderTop: '3.5px solid var(--brand)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+              <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8, background: '#F8FAFC', padding: '12px 18px' }}>
+                <SectionHeader icon={ShoppingCart} label="2. Add Products & Quantities" color="var(--brand)" />
                 <button
                   type="button"
                   id="quick-add-prod-btn"
@@ -635,15 +654,23 @@ export default function Purchasing() {
           </div>
 
           <div className="pos-right">
-            <div className="pos-total-box">
-              <div style={{ fontWeight: 700, marginBottom: 10, fontSize: 13, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Purchase Summary</div>
-              <div className="pos-total-row grand">{pkr(totalAmount)}</div>
+            <div className="pos-total-box po-total-box">
+              <SectionHeader icon={Receipt} label="Purchase Summary" color="var(--accent)" />
+              <div className="pos-total-row" style={{ marginTop: 8 }}>
+                <span>Line Items</span>
+                <span>{items.length} items</span>
+              </div>
+              <div className="pos-total-row grand">
+                <span>Order Total</span>
+                <span className="tabular">{pkr(totalAmount)}</span>
+              </div>
             </div>
-            <div className="card card-body">
+            <div className="card card-body" style={{ borderRadius: 12, border: '1.5px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div className="form-group">
                 <label className="form-label">Payment Method</label>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button
+                    type="button"
                     className={`btn btn-sm ${paymentMethod === 'CASH' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => { setPaymentMethod('CASH'); setBankAccountId(''); }}
                     style={{ flex: 1 }}
@@ -651,6 +678,7 @@ export default function Purchasing() {
                     💵 Cash
                   </button>
                   <button
+                    type="button"
                     className={`btn btn-sm ${paymentMethod === 'BANK' ? 'btn-primary' : 'btn-outline'}`}
                     onClick={() => setPaymentMethod('BANK')}
                     style={{ flex: 1 }}
@@ -688,12 +716,12 @@ export default function Purchasing() {
                   }}
                 />
               </div>
-              <div className="pos-total-row" style={{ padding: '4px 0' }}>
+              <div className="pos-total-row" style={{ padding: '6px 0' }}>
                 <span className="text-muted text-sm">Balance Payable</span>
                 <span className="tabular" style={{ fontWeight: 700, color: (totalAmount - paid) > 0 ? 'var(--alert)' : 'var(--paid)' }}>{pkr(Math.max(totalAmount - paid, 0))}</span>
               </div>
             </div>
-            <div className="card card-body">
+            <div className="card card-body" style={{ borderRadius: 12, border: '1.5px solid var(--border)', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Narration</label>
                 <textarea className="form-input" value={narration} onChange={(e) => setNarration(e.target.value)} placeholder="Optional transaction note..." rows={2} style={{ resize: 'vertical' }} />
@@ -708,7 +736,37 @@ export default function Purchasing() {
       ) : (
         /* History tab */
         <div>
-          <div className="card">
+          <KpiGrid cols={3}>
+            <KpiCard
+              icon={ShoppingCart}
+              iconBg="#EFF6FF"
+              iconColor="#1B4B91"
+              borderColor="#1B4B91"
+              badge="Total Orders"
+              value={history.length}
+              subtitle="All historical purchase orders"
+            />
+            <KpiCard
+              icon={CheckCircle2}
+              iconBg="#ECFDF5"
+              iconColor="#0F6E4F"
+              borderColor="#0F6E4F"
+              badge="Total Paid"
+              value={pkr(history.reduce((s, p) => s + (parseFloat(p.paidAmount) || 0), 0))}
+              subtitle="Total distributor payouts"
+            />
+            <KpiCard
+              icon={AlertCircle}
+              iconBg="#FEF2F2"
+              iconColor="#B4372B"
+              borderColor="#B4372B"
+              badge="Payable Balance"
+              value={pkr(history.reduce((s, p) => s + (parseFloat(p.balanceAmount) || 0), 0))}
+              subtitle="Outstanding supplier debt"
+            />
+          </KpiGrid>
+
+          <div className="app-table-card">
             <div className="data-table-wrap" style={{ border: 'none' }}>
               <table className="data-table">
                 <thead>

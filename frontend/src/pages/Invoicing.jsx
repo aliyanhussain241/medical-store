@@ -12,8 +12,9 @@ import { customersAPI, productsAPI, invoicesAPI, exportAPI, offerListsAPI, downl
 import { useAuth } from '../context/AuthContext';
 import useDebounce from '../utils/useDebounce';
 import toast from 'react-hot-toast';
-import { Search, Plus, Trash2, FileDown, Printer, Tag, Lock, Eye, X, CheckCircle, Landmark, Pencil, Key } from 'lucide-react';
+import { Search, Plus, Trash2, FileDown, Printer, Tag, Lock, Eye, X, CheckCircle, Landmark, Pencil, Key, Receipt, Wallet, Users, ShoppingBag } from 'lucide-react';
 import { useBusinessConfig } from '../context/BusinessConfigContext';
+import { PageHeader, SectionHeader, PillBadge } from '../components/ui';
 
 function pkr(v) {
   return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`;
@@ -526,9 +527,11 @@ export default function Invoicing() {
 
   return (
     <div className="invoicing-page">
-      <div className="page-header">
-        <h2 className="page-title">New Sales Invoice</h2>
-        {savedInvoiceId && (
+      <PageHeader
+        title={editingInvoiceId ? `Edit Invoice #${editingInvoiceNo}` : "New Sales Invoice"}
+        subtitle="Wholesale billing, pricing mode management & real-time counter sales"
+        badge={editingInvoiceId ? (isPastEdit ? 'Authorized Edit' : 'Same-Day Edit') : 'Live POS'}
+        actions={savedInvoiceId && (
           <div className="flex gap-8">
             <button
               id="view-invoice-modal-btn"
@@ -545,14 +548,14 @@ export default function Invoicing() {
             </button>
           </div>
         )}
-      </div>
+      />
 
       <div className="pos-layout">
         {/* LEFT — Product search + line items */}
         <div className="pos-left">
           {/* Invoice meta & Customer Selection */}
-          <div className="card">
-            <div className="card-body">
+          <div className="card" style={{ borderTop: '3.5px solid var(--brand)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+            <div className="card-body" style={{ padding: '16px 18px' }}>
               {/* Editing Status Banner if active */}
               {editingInvoiceId && (
                 <div
@@ -583,20 +586,15 @@ export default function Invoicing() {
 
               {/* STEP 1: Select Customer */}
               <div style={{ marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <label className="form-label" style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-primary)', marginBottom: 0 }}>
-                    1. Select Customer *
-                  </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 6 }}>
+                  <SectionHeader icon={Users} label="1. Customer & Account Details" color="var(--brand)" />
                   {selectedCustomer && (
-                    <div style={{ fontSize: 12, display: 'flex', gap: 12 }}>
-                      <span>Code: <strong>{selectedCustomer.customerCode || '0'}</strong></span>
-                      <span>Area: <strong>{selectedCustomer.area || 'UNASSIGNED'}</strong></span>
-                      <span>
-                        Prv Bal:{' '}
-                        <strong style={{ color: prvBalance > 0 ? 'var(--alert)' : 'var(--paid)' }}>
-                          {pkr(prvBalance)} {prvBalance > 0 ? '(Due)' : '(Clear)'}
-                        </strong>
-                      </span>
+                    <div style={{ fontSize: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span className="text-muted">Code: <strong style={{ color: 'var(--text)' }}>{selectedCustomer.customerCode || '0'}</strong></span>
+                      <span className="text-muted">Area: <strong style={{ color: 'var(--text)' }}>{selectedCustomer.area || 'UNASSIGNED'}</strong></span>
+                      <PillBadge variant={prvBalance > 0 ? 'DR' : 'CR'}>
+                        Prv Bal: {pkr(prvBalance)} {prvBalance > 0 ? '(Due)' : '(Clear)'}
+                      </PillBadge>
                     </div>
                   )}
                 </div>
@@ -826,10 +824,10 @@ export default function Invoicing() {
           </div>
 
           {/* Product search */}
-          <div className="card">
-            <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8 }}>
+          <div className="card" style={{ borderTop: '3.5px solid var(--accent)', borderRadius: 12, boxShadow: '0 1px 4px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+            <div className="card-header flex justify-between items-center" style={{ flexWrap: 'wrap', gap: 8, background: '#F8FAFC', padding: '12px 18px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontWeight: 700 }}>3. Add Products</span>
+                <SectionHeader icon={ShoppingBag} label="2. Add Products & Line Items" color="var(--accent)" />
                 <button
                   type="button"
                   id="add-manual-item-btn"
@@ -1587,20 +1585,9 @@ export default function Invoicing() {
         {/* RIGHT — Totals summary, Balance tracking & save button */}
         <div className="pos-right">
           {/* Invoice Summary Card */}
-          <div className="card card-body">
-            <div
-              style={{
-                fontWeight: 700,
-                marginBottom: 10,
-                fontSize: 13,
-                color: 'var(--brand)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              Invoice Summary
-            </div>
-            <div className="pos-total-row">
+          <div className="pos-total-box" style={{ borderTop: '3.5px solid var(--brand)' }}>
+            <SectionHeader icon={Receipt} label="Invoice Summary" color="var(--brand)" />
+            <div className="pos-total-row" style={{ marginTop: 8 }}>
               <span>Gross Total</span>
               <span className="tabular">
                 {pkr(
@@ -1626,19 +1613,8 @@ export default function Invoicing() {
           </div>
 
           {/* Customer Running Balance Preview Card */}
-          <div className="card card-body">
-            <div
-              style={{
-                fontWeight: 700,
-                marginBottom: 10,
-                fontSize: 13,
-                color: '#1e40af',
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-              }}
-            >
-              Party Balance Breakdown
-            </div>
+          <div className="pos-total-box" style={{ borderTop: '3.5px solid var(--accent)' }}>
+            <SectionHeader icon={Wallet} label="Party Balance Breakdown" color="var(--accent)" />
 
             <div className="pos-total-row" style={{ padding: '3px 0' }}>
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Previous Balance (Prv)</span>
