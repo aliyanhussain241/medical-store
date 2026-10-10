@@ -113,17 +113,19 @@ export default function Customers() {
 
   const customers = data?.data || [];
 
-  const totalCustomers = data?.total || customers.length;
-  const totalReceivable = customers.reduce((s, c) => {
-    const bal = parseFloat(c.currentBalance ?? c.balance ?? 0);
-    return s + (bal > 0 ? bal : 0);
-  }, 0);
+  const totalCustomers = data?.summary?.totalCustomers ?? (data?.total || customers.length);
+  const totalReceivable = data?.summary?.totalReceivable !== undefined
+    ? data.summary.totalReceivable
+    : customers.reduce((s, c) => {
+        const bal = parseFloat(c.currentBalance ?? c.balance ?? 0);
+        return s + (bal > 0 ? bal : 0);
+      }, 0);
 
   return (
     <div>
       <PageHeader
         title="Customers"
-        subtitle="Wholesale buyer directory, credit balances & area routing"
+        subtitle="Wholesale buyer directory, credit ledger balances and accounts"
         actions={
           <button id="add-customer-btn" className="btn btn-brand" onClick={openAdd}>
             <Plus size={14} /> Add Customer
@@ -131,33 +133,24 @@ export default function Customers() {
         }
       />
 
-      <KpiGrid cols={3}>
+      <KpiGrid cols={2}>
         <KpiCard
           icon={Users}
           iconBg="#ECFDF5"
           iconColor="#0F6E4F"
           borderColor="#0F6E4F"
-          badge="Accounts"
+          badge="Customers"
           value={totalCustomers}
-          subtitle="Total wholesale customers"
-        />
-        <KpiCard
-          icon={MapPin}
-          iconBg="#EFF6FF"
-          iconColor="#1B4B91"
-          borderColor="#1B4B91"
-          badge="Routes"
-          value={existingAreas.length}
-          subtitle="Unique delivery areas / cities"
+          subtitle="Total registered wholesale customer accounts"
         />
         <KpiCard
           icon={Wallet}
           iconBg="#FEF2F2"
           iconColor="#B4372B"
           borderColor="#B4372B"
-          badge="Outstanding"
+          badge="Receivables"
           value={pkr(totalReceivable)}
-          subtitle="Total market receivables"
+          subtitle="Total outstanding market receivables"
         />
       </KpiGrid>
 

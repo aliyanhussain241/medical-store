@@ -41,7 +41,7 @@ async function list(req, res, next) {
       ...(overdueOnly === 'true' && { currentBalance: { gt: 0 } }),
     };
 
-    const [customers, total] = await Promise.all([
+    const [customers, total, totalAll, receivableAgg] = await Promise.all([
       prisma.customer.findMany({
         where,
         skip,
@@ -49,9 +49,26 @@ async function list(req, res, next) {
         orderBy: [{ customerName: 'asc' }],
       }),
       prisma.customer.count({ where }),
+      prisma.customer.count({ where: { userId: req.user.id } }),
+      prisma.customer.aggregate({
+        where: { userId: req.user.id, currentBalance: { gt: 0 } },
+        _sum: { currentBalance: true },
+      }),
     ]);
 
-    res.json({ success: true, data: customers, total, page: parseInt(page), limit: parseInt(limit) });
+    const totalReceivable = parseFloat(receivableAgg._sum.currentBalance || 0);
+
+    res.json({
+      success: true,
+      data: customers,
+      total,
+      summary: {
+        totalCustomers: totalAll,
+        totalReceivable,
+      },
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
   } catch (err) {
     next(err);
   }

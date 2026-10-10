@@ -2230,8 +2230,10 @@ th.num,
   background: #fff;
   border-radius: 12px;
   border: 1.5px solid var(--border);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  -webkit-overflow-scrolling: touch;
 }
 .app-table-card .data-table-wrap {
   border: none;

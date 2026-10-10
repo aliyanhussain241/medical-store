@@ -185,7 +185,7 @@ export default function Employees() {
       />
 
       {/* KPI Cards */}
-      <KpiGrid cols={3}>
+      <KpiGrid cols={2}>
         <KpiCard
           title="Total Staff"
           value={employees.length}
@@ -201,14 +201,6 @@ export default function Employees() {
           icon={DollarSign}
           accentColor="rose"
           badge="LIABILITY"
-        />
-        <KpiCard
-          title="Active Employees"
-          value={activeCount}
-          caption="Eligible for current month payroll"
-          icon={CheckCircle2}
-          accentColor="emerald"
-          badge="ELIGIBLE"
         />
       </KpiGrid>
 

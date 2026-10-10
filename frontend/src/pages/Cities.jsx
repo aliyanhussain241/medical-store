@@ -99,24 +99,15 @@ export default function Cities() {
         }
       />
 
-      <KpiGrid cols={2}>
+      <KpiGrid cols={1}>
         <KpiCard
           icon={MapPin}
           iconBg="#EFF6FF"
           iconColor="#1B4B91"
           borderColor="#1B4B91"
-          badge="Regions"
+          badge="Territories"
           value={totalCities}
-          subtitle="Configured delivery sectors and cities"
-        />
-        <KpiCard
-          icon={MapPin}
-          iconBg="#ECFDF5"
-          iconColor="#0F6E4F"
-          borderColor="#0F6E4F"
-          badge="Active"
-          value={cities.length}
-          subtitle="Available in customer address dropdowns"
+          subtitle="Registered cities and customer address territories"
         />
       </KpiGrid>
 

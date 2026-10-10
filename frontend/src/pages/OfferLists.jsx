@@ -308,8 +308,8 @@ export default function OfferLists() {
   }
 
   const lists = listData?.data || [];
-  const totalLists = listData?.total || 0;
-  const activeLists = lists.filter((l) => l.isActive).length;
+  const totalLists = listData?.summary?.totalLists ?? (listData?.total || 0);
+  const activeLists = listData?.summary?.activeLists ?? lists.filter((l) => l.isActive).length;
 
   return (
     <div>
@@ -325,16 +325,7 @@ export default function OfferLists() {
       />
 
       {/* ── KPI Summary Cards ────────────────────────────────────── */}
-      <KpiGrid cols={3}>
-        <KpiCard
-          icon={CheckCircle2}
-          iconBg="#ECFDF5"
-          iconColor="#0F6E4F"
-          borderColor="#0F6E4F"
-          badge="Active"
-          value={activeLists}
-          subtitle="Currently active promotion lists"
-        />
+      <KpiGrid cols={2}>
         <KpiCard
           icon={Tag}
           iconBg="#EFF6FF"
@@ -345,13 +336,13 @@ export default function OfferLists() {
           subtitle="All registered offer lists"
         />
         <KpiCard
-          icon={Building2}
-          iconBg="#EEF2FF"
-          iconColor="#4F46E5"
-          borderColor="#4F46E5"
-          badge="Suppliers"
-          value={new Set(lists.flatMap((l) => l.items || []).map((i) => i.companyId)).size || companies.length}
-          subtitle="Companies with active promotions"
+          icon={CheckCircle2}
+          iconBg="#ECFDF5"
+          iconColor="#0F6E4F"
+          borderColor="#0F6E4F"
+          badge="Active"
+          value={activeLists}
+          subtitle="Currently active promotion lists"
         />
       </KpiGrid>
 

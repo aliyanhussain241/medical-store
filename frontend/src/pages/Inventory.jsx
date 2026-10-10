@@ -112,10 +112,10 @@ export default function Inventory() {
     + (cfg.showExpiryDate ? 1 : 0)
     + (cfg.showTradePrice ? 1 : 0);
 
-  const totalCount = data?.total || products.length;
-  const inStockCount = products.filter(p => parseFloat(p.stockQty) > 0).length;
-  const lowStockCount = products.filter(p => p.isLowStock).length;
-  const nearExpiryCount = products.filter(p => p.isNearExpiry || p.isExpired).length;
+  const totalCount = data?.summary?.totalProducts ?? (data?.total || products.length);
+  const inStockCount = data?.summary?.inStock ?? products.filter(p => parseFloat(p.stockQty) > 0).length;
+  const lowStockCount = data?.summary?.lowStock ?? products.filter(p => p.isLowStock).length;
+  const nearExpiryCount = data?.summary?.nearExpiry ?? products.filter(p => p.isNearExpiry || p.isExpired).length;
 
   return (
     <div>

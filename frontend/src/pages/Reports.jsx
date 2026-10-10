@@ -108,9 +108,9 @@ export default function Reports() {
           badge={parseFloat(summary.totalProfit) >= 0 ? 'PROFIT' : 'LOSS'}
         />
         <KpiCard
-          title="Profit Margin"
+          title="Gross Margin %"
           value={`${summary.profitMargin || '0.0'}%`}
-          caption="Gross return on turnover"
+          caption="Turnover gross profit margin"
           icon={Percent}
           accentColor="blue"
           badge="MARGIN"

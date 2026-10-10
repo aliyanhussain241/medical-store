@@ -37,7 +37,7 @@ async function list(req, res, next) {
       }),
     };
 
-    const [lists, total] = await Promise.all([
+    const [lists, total, totalAll, activeCount] = await Promise.all([
       prisma.offerList.findMany({
         where,
         skip,
@@ -50,6 +50,8 @@ async function list(req, res, next) {
         },
       }),
       prisma.offerList.count({ where }),
+      prisma.offerList.count({ where: { userId: req.user.id } }),
+      prisma.offerList.count({ where: { userId: req.user.id, isActive: true } }),
     ]);
 
     // Enrich with counts
@@ -72,6 +74,10 @@ async function list(req, res, next) {
       success: true,
       data: enriched,
       total,
+      summary: {
+        totalLists: totalAll,
+        activeLists: activeCount,
+      },
       page: parseInt(page),
       limit: parseInt(limit),
     });

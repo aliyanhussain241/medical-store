@@ -35,7 +35,7 @@ async function list(req, res, next) {
       }),
     };
 
-    const [products, total] = await Promise.all([
+    const [products, total, totalAll, inStockCount, lowStockRaw, nearExpiryCount] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
@@ -43,7 +43,21 @@ async function list(req, res, next) {
         orderBy: { productName: 'asc' },
       }),
       prisma.product.count({ where }),
+      prisma.product.count({ where: { userId: req.user.id } }),
+      prisma.product.count({ where: { userId: req.user.id, stockQty: { gt: 0 } } }),
+      prisma.$queryRaw`
+        SELECT COUNT(*)::int as count FROM products
+        WHERE user_id = ${req.user.id} AND stock_qty <= min_stock_alert
+      `,
+      prisma.product.count({
+        where: {
+          userId: req.user.id,
+          expiryDate: { lte: in60Days },
+        },
+      }),
     ]);
+
+    const lowStockCount = Number(lowStockRaw[0]?.count || 0);
 
     // Annotate each product with alert flags
     const data = products.map((p) => ({
@@ -53,7 +67,19 @@ async function list(req, res, next) {
       isExpired: p.expiryDate && p.expiryDate < today,
     }));
 
-    res.json({ success: true, data, total, page: parseInt(page), limit: parseInt(limit) });
+    res.json({
+      success: true,
+      data,
+      total,
+      summary: {
+        totalProducts: totalAll,
+        inStock: inStockCount,
+        lowStock: lowStockCount,
+        nearExpiry: nearExpiryCount,
+      },
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
   } catch (err) {
     next(err);
   }

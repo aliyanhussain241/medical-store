@@ -22,12 +22,29 @@ async function list(req, res, next) {
       }),
     };
 
-    const [companies, total] = await Promise.all([
+    const [companies, total, totalAll, payableAgg] = await Promise.all([
       prisma.company.findMany({ where, skip, take: parseInt(limit), orderBy: { companyName: 'asc' } }),
       prisma.company.count({ where }),
+      prisma.company.count({ where: { userId: req.user.id } }),
+      prisma.company.aggregate({
+        where: { userId: req.user.id, currentBalance: { gt: 0 } },
+        _sum: { currentBalance: true },
+      }),
     ]);
 
-    res.json({ success: true, data: companies, total, page: parseInt(page), limit: parseInt(limit) });
+    const totalPayable = parseFloat(payableAgg._sum.currentBalance || 0);
+
+    res.json({
+      success: true,
+      data: companies,
+      total,
+      summary: {
+        totalCompanies: totalAll,
+        totalPayable,
+      },
+      page: parseInt(page),
+      limit: parseInt(limit),
+    });
   } catch (err) {
     next(err);
   }

@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { authAPI } from '../api/services';
 import toast from 'react-hot-toast';
 import { handleFormEnterKey } from '../utils/keyboardNav';
-import { Lock, Mail, ShieldCheck } from 'lucide-react';
+import { Lock, Mail } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
@@ -96,13 +96,6 @@ export default function Login() {
         <p style={{ textAlign: 'center', marginTop: 18, fontSize: 13, color: 'var(--text-muted)' }}>
           New account? <Link to="/signup" style={{ color: 'var(--brand)', fontWeight: 600 }}>Create an account</Link>
         </p>
-
-        <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, background: 'var(--subtle, #f8fafc)', padding: '5px 10px', borderRadius: 6, color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-            <ShieldCheck size={13} style={{ color: 'var(--brand)' }} />
-            Demo: demo@medicalstore.app &nbsp;|&nbsp; Demo@12345
-          </span>
-        </div>
       </div>
     </div>
   );

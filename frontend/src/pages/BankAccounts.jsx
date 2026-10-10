@@ -68,7 +68,10 @@ export default function BankAccounts() {
   }, [modal]);
 
   const accounts = data?.data || [];
-  const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.currentBalance) || 0), 0);
+  const totalAccounts = data?.summary?.totalAccounts ?? (data?.total ?? accounts.length);
+  const totalBalance = data?.summary?.totalBalance !== undefined
+    ? data.summary.totalBalance
+    : accounts.reduce((sum, a) => sum + (parseFloat(a.currentBalance) || 0), 0);
 
   return (
     <div className="space-y-4">
@@ -83,10 +86,10 @@ export default function BankAccounts() {
       />
 
       {/* KPI Cards */}
-      <KpiGrid cols={3}>
+      <KpiGrid cols={2}>
         <KpiCard
           title="Bank Accounts"
-          value={data?.total ?? accounts.length}
+          value={totalAccounts}
           caption="Active checking & saving accounts"
           icon={Landmark}
           accentColor="brand"
@@ -99,14 +102,6 @@ export default function BankAccounts() {
           icon={Wallet}
           accentColor={totalBalance >= 0 ? 'emerald' : 'rose'}
           badge={totalBalance >= 0 ? 'LIQUID' : 'OVERDRAWN'}
-        />
-        <KpiCard
-          title="Banking Status"
-          value="Operational"
-          caption="All linked channels active"
-          icon={CheckCircle2}
-          accentColor="blue"
-          badge="HEALTHY"
         />
       </KpiGrid>
 

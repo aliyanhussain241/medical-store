@@ -111,7 +111,7 @@ export default function BankLedger() {
 
       {/* Summary KPIs */}
       {bankAccountId && summary.closingBalance !== undefined && (
-        <KpiGrid cols={4}>
+        <KpiGrid cols={3}>
           <KpiCard
             title="Total Deposits (Dr)"
             value={pkr(summary.totalDebit)}
@@ -135,14 +135,6 @@ export default function BankLedger() {
             icon={Wallet}
             accentColor={parseFloat(summary.closingBalance) >= 0 ? 'emerald' : 'rose'}
             badge={parseFloat(summary.closingBalance) >= 0 ? 'NET CR' : 'OVERDRAFT'}
-          />
-          <KpiCard
-            title="Account Info"
-            value={selectedBank?.bankName || 'Bank'}
-            caption={`${selectedBank?.accountTitle || '—'} · ${selectedBank?.accountNumber || '—'}`}
-            icon={Landmark}
-            accentColor="blue"
-            badge="VERIFIED"
           />
         </KpiGrid>
       )}

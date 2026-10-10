@@ -103,7 +103,7 @@ export default function CompanyLedger() {
 
       {/* Summary KPIs */}
       {companyId && summary.closingBalance !== undefined && (
-        <KpiGrid cols={4}>
+        <KpiGrid cols={3}>
           <KpiCard
             title="Total Debit (Dr)"
             value={pkr(summary.totalDebit)}
@@ -127,14 +127,6 @@ export default function CompanyLedger() {
             icon={Wallet}
             accentColor={parseFloat(summary.closingBalance) > 0 ? 'rose' : 'emerald'}
             badge={parseFloat(summary.closingBalance) > 0 ? 'PAYABLE' : 'CLEAR'}
-          />
-          <KpiCard
-            title="Company Info"
-            value={selectedCompany?.companyName || 'Selected'}
-            caption={`${selectedCompany?.phone || 'No phone'} · ${selectedCompany?.address || 'No address'}`}
-            icon={Building2}
-            accentColor="brand"
-            badge="SUPPLIER"
           />
         </KpiGrid>
       )}

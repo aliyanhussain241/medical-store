@@ -139,9 +139,9 @@ export default function BalanceSheet() {
           badge="LIABILITIES"
         />
         <KpiCard
-          title="Owner's Equity"
+          title="Owner's Equity (derived)"
           value={fmtPKR(totalEquity)}
-          caption="Net retained capital & business equity"
+          caption="Assets minus Liabilities"
           icon={TrendingUp}
           accentColor="blue"
           badge="EQUITY"

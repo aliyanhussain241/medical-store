@@ -78,11 +78,13 @@ export default function Companies() {
 
   const companies = data?.data || [];
 
-  const totalCompanies = data?.total || companies.length;
-  const totalPayable = companies.reduce((s, c) => {
-    const bal = parseFloat(c.currentBalance || 0);
-    return s + (bal > 0 ? bal : 0);
-  }, 0);
+  const totalCompanies = data?.summary?.totalCompanies ?? (data?.total || companies.length);
+  const totalPayable = data?.summary?.totalPayable !== undefined
+    ? data.summary.totalPayable
+    : companies.reduce((s, c) => {
+        const bal = parseFloat(c.currentBalance || 0);
+        return s + (bal > 0 ? bal : 0);
+      }, 0);
 
   return (
     <div>
