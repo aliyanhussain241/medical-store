@@ -8,11 +8,12 @@ import { accountHeadsAPI } from '../api/services';
 import toast from 'react-hot-toast';
 import { Plus, Search, Pencil, Trash2, X, Layers, TrendingUp, TrendingDown, ShieldAlert } from 'lucide-react';
 import { handleFormEnterKey } from '../utils/keyboardNav';
+import { PageHeader, KpiGrid, KpiCard, EmptyState, TableSkeleton } from '../components/ui';
 
 const CATEGORIES = [
-  { value: 'EXPENSE', label: 'Expense', icon: TrendingDown, color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
-  { value: 'INCOME', label: 'Income', icon: TrendingUp, color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
-  { value: 'LIABILITY', label: 'Liability', icon: ShieldAlert, color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
+  { value: 'EXPENSE', label: 'Expense', icon: TrendingDown, color: '#EF4444', accent: 'rose' },
+  { value: 'INCOME', label: 'Income', icon: TrendingUp, color: '#10B981', accent: 'emerald' },
+  { value: 'LIABILITY', label: 'Liability', icon: ShieldAlert, color: '#8B5CF6', accent: 'blue' },
 ];
 
 const EMPTY = { name: '', category: 'EXPENSE', description: '' };
@@ -94,127 +95,110 @@ export default function ChartOfAccounts() {
   const getCategoryMeta = (cat) => CATEGORIES.find((c) => c.value === cat) || CATEGORIES[0];
 
   return (
-    <div>
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Chart of Accounts</h2>
-          <p className="text-muted text-sm" style={{ marginTop: 4 }}>
-            Classify and track Expense, Income, and Liability account heads for your financial ledger.
-          </p>
-        </div>
-        <button id="add-account-head-btn" className="btn btn-primary" onClick={() => openAdd(selectedCategory)}>
-          <Plus size={14} /> Add Account Head
-        </button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title="Chart of Accounts"
+        subtitle="Classify and track Expense, Income, and Liability account heads for your financial ledger"
+        actions={
+          <button id="add-account-head-btn" className="btn btn-primary" onClick={() => openAdd(selectedCategory)}>
+            <Plus size={14} /> Add Account Head
+          </button>
+        }
+      />
 
-      {/* Category Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 20 }}>
+      {/* Category Summary KPIs */}
+      <KpiGrid cols={3}>
         {CATEGORIES.map((cat) => {
-          const Icon = cat.icon;
           const count = grouped[cat.value]?.length || 0;
-          const isSelected = selectedCategory === cat.value;
           return (
             <div
               key={cat.value}
-              className="card"
-              style={{
-                cursor: 'pointer',
-                border: isSelected ? `2px solid ${cat.color}` : '1px solid var(--border)',
-                background: isSelected ? cat.bg : 'var(--surface)',
-                padding: '16px 20px',
-                transition: 'all 0.15s ease',
-              }}
               onClick={() => setSelectedCategory(selectedCategory === cat.value ? 'ALL' : cat.value)}
+              style={{ cursor: 'pointer' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 8,
-                      background: cat.bg,
-                      color: cat.color,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Icon size={18} />
-                  </div>
-                  <div>
-                    <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{cat.label}</span>
-                    <div className="text-muted text-xs">Category</div>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <span style={{ fontSize: 22, fontWeight: 700, color: cat.color }}>{count}</span>
-                  <div className="text-muted text-xs">Heads</div>
-                </div>
-              </div>
+              <KpiCard
+                title={`${cat.label} Heads`}
+                value={count}
+                caption={selectedCategory === cat.value ? 'Filter active (click to clear)' : `Click to view ${cat.label.toLowerCase()} heads`}
+                icon={cat.icon}
+                accentColor={cat.accent}
+                badge={selectedCategory === cat.value ? 'SELECTED' : 'CATEGORY'}
+              />
             </div>
           );
         })}
-      </div>
+      </KpiGrid>
 
       {/* Filter and Search Bar */}
-      <div className="search-bar" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            className={`btn btn-sm ${selectedCategory === 'ALL' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setSelectedCategory('ALL')}
-          >
-            All Categories ({allHeads.length})
-          </button>
-          {CATEGORIES.map((cat) => (
+      <div className="app-filter-bar">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
-              key={cat.value}
-              className={`btn btn-sm ${selectedCategory === cat.value ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setSelectedCategory(cat.value)}
+              className={`btn btn-sm ${selectedCategory === 'ALL' ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setSelectedCategory('ALL')}
             >
-              {cat.label} ({grouped[cat.value]?.length || 0})
+              All Categories ({allHeads.length})
             </button>
-          ))}
-        </div>
+            {CATEGORIES.map((cat) => (
+              <button
+                key={cat.value}
+                className={`btn btn-sm ${selectedCategory === cat.value ? 'btn-primary' : 'btn-outline'}`}
+                onClick={() => setSelectedCategory(cat.value)}
+              >
+                {cat.label} ({grouped[cat.value]?.length || 0})
+              </button>
+            ))}
+          </div>
 
-        <div className="search-input-wrap" style={{ maxWidth: 300, minWidth: 220 }}>
-          <Search size={14} />
-          <input
-            id="coa-search"
-            type="text"
-            className="form-input"
-            placeholder="Search account heads..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+          <div className="search-input-wrap" style={{ flex: '1 1 240px', maxWidth: 320, minWidth: 200, marginLeft: 'auto' }}>
+            <Search size={14} />
+            <input
+              id="coa-search"
+              type="text"
+              className="form-input text-sm"
+              placeholder="Search account heads..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
       {/* Account Heads Table */}
-      <div className="card">
-        <div className="data-table-wrap" style={{ border: 'none' }}>
+      <div className="app-table-card">
+        <div className="flex items-center justify-between p-3 border-b border-border bg-subtle">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">Account Head Registry</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-surface-alt font-medium text-muted">
+              {filteredHeads.length} heads
+            </span>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
                 <th style={{ width: 60 }}>#</th>
                 <th>Account Head Name</th>
-                <th>Category</th>
+                <th style={{ width: 140 }}>Category</th>
                 <th>Description</th>
-                <th style={{ width: 120 }}>Actions</th>
+                <th style={{ width: 100 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: 32 }}>
-                    <div className="spinner" style={{ margin: 'auto' }} />
-                  </td>
-                </tr>
+                <TableSkeleton cols={5} rows={5} />
               ) : filteredHeads.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)' }}>
-                    <Layers size={32} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
-                    <p>No account heads found. Click &quot;Add Account Head&quot; to create one.</p>
+                  <td colSpan={5} style={{ padding: 0 }}>
+                    <EmptyState
+                      icon={Layers}
+                      title="No account heads found"
+                      description="Create account heads to classify cash book entries, expenses, and ledger postings."
+                      actionLabel="+ Add Account Head"
+                      onAction={() => openAdd(selectedCategory)}
+                    />
                   </td>
                 </tr>
               ) : (
@@ -223,17 +207,17 @@ export default function ChartOfAccounts() {
                   const Icon = meta.icon;
                   return (
                     <tr key={h.id}>
-                      <td className="text-muted">{idx + 1}</td>
+                      <td className="text-muted text-xs">{idx + 1}</td>
                       <td style={{ fontWeight: 600 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span>{h.name}</span>
+                        <div className="text-sm font-semibold text-text">
+                          {h.name}
                         </div>
                       </td>
                       <td>
                         <span
                           className="badge"
                           style={{
-                            background: meta.bg,
+                            background: `rgba(${meta.accent === 'rose' ? '239, 68, 68' : meta.accent === 'emerald' ? '16, 185, 129' : '59, 130, 246'}, 0.1)`,
                             color: meta.color,
                             border: `1px solid ${meta.color}40`,
                             display: 'inline-flex',
@@ -246,9 +230,9 @@ export default function ChartOfAccounts() {
                           {meta.label}
                         </span>
                       </td>
-                      <td className="text-muted text-sm">{h.description || '—'}</td>
+                      <td className="text-muted text-xs">{h.description || '—'}</td>
                       <td>
-                        <div className="action-btns">
+                        <div className="flex gap-2">
                           <button
                             className="btn-icon"
                             title="Edit"
@@ -276,19 +260,22 @@ export default function ChartOfAccounts() {
 
       {/* Add / Edit Modal */}
       {modal && (
-        <div className="modal-backdrop">
-          <div className="modal-box" style={{ maxWidth: 460 }}>
+        <div className="modal-overlay" onClick={closeModal}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{modal === 'add' ? 'Add New Account Head' : 'Edit Account Head'}</h3>
-              <button className="btn-icon" onClick={closeModal}><X size={16} /></button>
+              <div className="flex items-center gap-2">
+                <Layers size={16} className="text-brand" />
+                <span className="font-semibold text-base">{modal === 'add' ? 'Add New Account Head' : 'Edit Account Head'}</span>
+              </div>
+              <button className="btn-icon" onClick={closeModal}><X size={15} /></button>
             </div>
             <form onSubmit={handleSubmit} onKeyDown={(e) => handleFormEnterKey(e, handleSubmit)}>
-              <div className="modal-body">
+              <div className="modal-body space-y-3">
                 <div className="form-group">
-                  <label className="form-label">Category <span className="req">*</span></label>
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Category *</label>
                   <select
                     id="coa-category"
-                    className="form-control"
+                    className="form-select text-sm font-medium"
                     value={form.category}
                     onChange={(e) => setForm({ ...form, category: e.target.value })}
                     required
@@ -300,9 +287,9 @@ export default function ChartOfAccounts() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Account Head Name <span className="req">*</span></label>
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Account Head Name *</label>
                   <input
-                    className="form-control"
+                    className="form-input text-sm"
                     placeholder="e.g. Office Rent, Electricity, Salaries"
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -312,9 +299,9 @@ export default function ChartOfAccounts() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Description / Notes</label>
+                  <label className="form-label text-xs font-semibold uppercase tracking-wider text-muted">Description / Notes</label>
                   <textarea
-                    className="form-control"
+                    className="form-input text-sm"
                     rows={3}
                     placeholder="Optional notes or details about this account head..."
                     value={form.description}
@@ -324,7 +311,7 @@ export default function ChartOfAccounts() {
               </div>
 
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={closeModal}>Cancel</button>
+                <button type="button" className="btn btn-outline" onClick={closeModal}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? 'Saving...' : (modal === 'add' ? 'Create Account Head' : 'Save Changes')}
                 </button>
@@ -336,17 +323,17 @@ export default function ChartOfAccounts() {
 
       {/* Delete Confirmation Modal */}
       {delId && (
-        <div className="modal-backdrop">
-          <div className="modal-box" style={{ maxWidth: 400 }}>
+        <div className="modal-overlay" onClick={() => setDelId(null)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Confirm Deletion</h3>
-              <button className="btn-icon" onClick={() => setDelId(null)}><X size={16} /></button>
+              <span className="font-semibold text-base">Confirm Deletion</span>
+              <button className="btn-icon" onClick={() => setDelId(null)}><X size={15} /></button>
             </div>
             <div className="modal-body">
-              <p>Are you sure you want to delete this account head? It cannot be deleted if transactions are linked to it.</p>
+              <p className="text-sm text-muted">Are you sure you want to delete this account head? It cannot be deleted if transactions are linked to it.</p>
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setDelId(null)}>Cancel</button>
+              <button className="btn btn-outline" onClick={() => setDelId(null)}>Cancel</button>
               <button
                 className="btn btn-danger"
                 disabled={deleteMutation.isPending}
