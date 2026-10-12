@@ -348,7 +348,7 @@ export default function Customers() {
                   <input id="cust-town" className="form-input" value={form.town || ''} onChange={set('town')} placeholder="e.g. Model Town" />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Sector / Block</label>
+                  <label className="form-label">Bricks</label>
                   <input id="cust-sector" className="form-input" value={form.sector || ''} onChange={set('sector')} placeholder="e.g. Sector 4, Block B" />
                 </div>
               </div>

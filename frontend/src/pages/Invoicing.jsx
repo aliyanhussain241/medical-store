@@ -1016,7 +1016,7 @@ export default function Invoicing() {
                     {cfg.showSchemeFields && (
                       <>
                         <th className="num" style={{ width: 55 }}>ST/U</th>
-                        <th className="num" style={{ width: 55 }}>Free Pcs</th>
+                        <th className="num" style={{ width: 55 }}>Bonus</th>
                       </>
                     )}
                     <th className="num" style={{ width: 85 }}>Net Total</th>
