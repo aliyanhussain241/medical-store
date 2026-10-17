@@ -147,7 +147,6 @@ function ProfitBar({ label, value, max, color }) {
 function DashSkeleton() {
   return (
     <div className="db-root">
-      {d.complete === false && <p role="status">Unverified historical figures: some cost or opening-balance evidence is missing.</p>}
       <div className="db-welcome">
         <div className="skeleton" style={{ width: 220, height: 20, borderRadius: 6 }} />
         <div className="skeleton" style={{ width: 120, height: 13, borderRadius: 6, marginTop: 6 }} />
@@ -187,6 +186,7 @@ export default function Dashboard() {
 
   return (
     <div className="db-root">
+      {d.complete === false && <p role="status">Unverified historical figures: some cost or opening-balance evidence is missing.</p>}
 
       {/* ── Welcome Banner ───────────────────────────────── */}
       <div className="db-welcome">

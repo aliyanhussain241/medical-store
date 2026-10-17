@@ -15,6 +15,7 @@ import Signup from './pages/Signup';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import Invoicing from './pages/Invoicing';
+import ScreenErrorBoundary from './components/ScreenErrorBoundary';
 
 // ── Lazy loaded (secondary screens — loaded on-demand) ───────
 const Purchasing = lazy(() => import('./pages/Purchasing'));
@@ -79,6 +80,7 @@ export default function App() {
       <BusinessConfigProvider>
         <BrowserRouter>
           <OfflineBanner />
+          <ScreenErrorBoundary>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -107,6 +109,7 @@ export default function App() {
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          </ScreenErrorBoundary>
         </BrowserRouter>
         <Toaster position="top-right" toastOptions={{ duration: 3500, style: { fontSize: '13px', fontFamily: 'IBM Plex Sans, sans-serif' } }} />
       </BusinessConfigProvider>

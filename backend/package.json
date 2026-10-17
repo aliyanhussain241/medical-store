@@ -15,6 +15,7 @@
     "db:studio": "node node_modules/prisma/build/index.js studio",
     "test": "node --test test/*.test.js",
     "test:database": "node scripts/test-database.js",
+    "test:browser": "node scripts/test-database.js --browser",
     "db:migrate:test": "node scripts/test-database.js --migrate",
     "audit:discrepancies": "node scripts/discrepancies.js",
     "test:backup": "node scripts/test-database.js --backup"
@@ -45,7 +46,8 @@
     "prisma": "5.22.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "puppeteer-core": "^25.14.0"
   },
   "allowScripts": {
     "@prisma/client@5.22.0": true,
