@@ -48,9 +48,15 @@ test('F06/F14: strict finite decimal validation and Karachi calendar boundaries'
 });
 
 test('P01: database harness fails closed without approved disposable target', () => {
-  assert.throws(() => requireTestDatabase({ DATABASE_URL: 'postgresql://production/real' }), /TEST_DATABASE_URL/);
-  assert.throws(() => requireTestDatabase({ TEST_DATABASE_URL: 'postgresql://u:p@unknown/db', ALLOW_TEST_DATABASE_WRITES: 'yes' }), /not the owner-approved/);
+  const url = 'postgresql://u:p@ep-audit-test.example/db?sslmode=require';
+  const sources = { test: { DATABASE_URL: url }, production: { DATABASE_URL: 'postgresql://u:p@ep-production.example/db' } };
+  assert.equal(requireTestDatabase({}, { writes: false, sources }), url);
+  assert.throws(() => requireTestDatabase({}, { sources }), /authorization/);
+  assert.throws(() => requireTestDatabase({ TEST_DATABASE_URL: 'postgresql://other/db' }, { writes: false, sources }), /conflicting override/);
+  for (const host of ['ep-production.example', 'ep-production-pooler.example']) {
+    assert.throws(() => requireTestDatabase({}, { writes: false, sources: { ...sources, test: { DATABASE_URL: `postgresql://u:p@${host}/test` } } }), /production host/);
+  }
   for (const query of ['host=production', 'database=production', 'user=production', 'options=endpoint%3Dproduction', 'sslmode=disable']) {
-    assert.throws(() => requireTestDatabase({ TEST_DATABASE_URL: 'postgresql://u:p@unknown/db?' + query, ALLOW_TEST_DATABASE_WRITES: 'yes' }), /unsupported URL/);
+    assert.throws(() => requireTestDatabase({}, { writes: false, sources: { ...sources, test: { DATABASE_URL: 'postgresql://u:p@unknown/db?' + query } } }), /unsupported URL/);
   }
 });

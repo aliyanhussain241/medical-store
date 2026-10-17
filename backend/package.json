@@ -17,7 +17,7 @@
     "test:database": "node scripts/test-database.js",
     "db:migrate:test": "node scripts/test-database.js --migrate",
     "audit:discrepancies": "node scripts/discrepancies.js",
-    "test:backup": "node --test test/desktop-backup.integration.js"
+    "test:backup": "node scripts/test-database.js --backup"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

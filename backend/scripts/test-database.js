@@ -2,11 +2,11 @@
 const { requireTestDatabase } = require('../test/databaseTarget');
 const { spawnSync } = require('child_process');
 try {
-  const url = requireTestDatabase();
+  const url = requireTestDatabase(process.env, { writes: false });
   const args = process.argv.includes('--init') ? [require.resolve('prisma/build/index.js'), 'db', 'push', '--schema=prisma/schema.prisma', '--skip-generate'] : process.argv.includes('--seed') ? ['prisma/seed.js'] : process.argv.includes('--migrate')
     ? [require.resolve('prisma/build/index.js'), 'db', 'execute', '--schema=prisma/schema.prisma', '--file=prisma/posting-safety.sql']
-    : ['--test', 'test/database.integration.js'];
-  const result = spawnSync(process.execPath, args, { cwd: require('path').join(__dirname, '..'), stdio: 'inherit', env: { ...process.env, DATABASE_URL: url, NODE_ENV: 'test' } });
+    : ['--test', process.argv.includes('--backup') ? 'test/desktop-backup.integration.js' : 'test/database.integration.js'];
+  const result = spawnSync(process.execPath, args, { cwd: require('path').join(__dirname, '..'), stdio: 'inherit', env: { ...process.env, DATABASE_URL: url, TEST_DATABASE_URL: url, ALLOW_TEST_DATABASE_WRITES: 'yes', NODE_ENV: 'test' } });
   process.exitCode = result.status ?? 1;
 } catch (error) {
   console.error(error.message);
