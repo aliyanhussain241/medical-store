@@ -6,9 +6,16 @@ const { bad, number } = require('../utils/input');
 const { calculateLine } = require('../utils/numberUtils');
 const { getNextEntryNo } = require('../controllers/cashBookController');
 
+async function postingTimestamp(model, userId) {
+  const last = await prisma[model].findFirst({ where: { userId }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+  // PostgreSQL CURRENT_TIMESTAMP is identical for every row in one transaction.
+  // A strictly increasing timestamp preserves sale/payment/reversal order.
+  return new Date(Math.max(Date.now(), last ? new Date(last.createdAt).getTime() + 1 : 0));
+}
+
 async function postParty(userId, type, id, date, description, debit, credit, referenceType, referenceId) {
   const current = await partyStatement(prisma, userId, type, id, { to: dateOnly(date).toISOString().slice(0, 10) });
-  await prisma.ledgerTransaction.create({ data: { userId, partyType: type, partyId: id, transactionDate: dateOnly(date), description, debit: D(debit).toFixed(2), credit: D(credit).toFixed(2), runningBalance: D(current.summary.closingBalance).plus(debit).minus(credit).toFixed(2), referenceType, referenceId } });
+  await prisma.ledgerTransaction.create({ data: { userId, createdAt: await postingTimestamp('ledgerTransaction', userId), partyType: type, partyId: id, transactionDate: dateOnly(date), description, debit: D(debit).toFixed(2), credit: D(credit).toFixed(2), runningBalance: D(current.summary.closingBalance).plus(debit).minus(credit).toFixed(2), referenceType, referenceId } });
 }
 
 async function postMoney({ userId, method, bankAccountId, date, amount, description, referenceType, referenceId, partyName, accountHeadId }) {
@@ -20,12 +27,12 @@ async function postMoney({ userId, method, bankAccountId, date, amount, descript
   const day = dateOnly(date).toISOString().slice(0, 10);
   if (method === 'BANK') {
     const result = await bankStatement(prisma, userId, bankAccountId, { to: day });
-    await prisma.bankBookEntry.create({ data: { userId, bankAccountId, transactionDate: dateOnly(date), description, debit: value.gt(0) ? value.toFixed(2) : 0, credit: value.lt(0) ? value.negated().toFixed(2) : 0, runningBalance: D(result.summary.closingBalance).plus(value).toFixed(2), referenceType, referenceId, partyName, accountHeadId, ...classification } });
+    await prisma.bankBookEntry.create({ data: { userId, createdAt: await postingTimestamp('bankBookEntry', userId), bankAccountId, transactionDate: dateOnly(date), description, debit: value.gt(0) ? value.toFixed(2) : 0, credit: value.lt(0) ? value.negated().toFixed(2) : 0, runningBalance: D(result.summary.closingBalance).plus(value).toFixed(2), referenceType, referenceId, partyName, accountHeadId, ...classification } });
     await prisma.bankAccount.updateMany({ where: { id: bankAccountId, userId }, data: { currentBalance: { increment: value.toFixed(2) } } });
   } else {
     const result = await cashStatement(prisma, userId, { to: day });
     const entryType = value.gt(0) ? 'MCR' : 'MCP';
-    await prisma.cashBookEntry.create({ data: { userId, transactionDate: dateOnly(date), description, cashIn: value.gt(0) ? value.toFixed(2) : 0, cashOut: value.lt(0) ? value.negated().toFixed(2) : 0, runningBalance: D(result.summary.closingBalance).plus(value).toFixed(2), entryType, entryNo: await getNextEntryNo(userId, entryType), referenceType, referenceId, partyName, accountHeadId, ...classification } });
+    await prisma.cashBookEntry.create({ data: { userId, createdAt: await postingTimestamp('cashBookEntry', userId), transactionDate: dateOnly(date), description, cashIn: value.gt(0) ? value.toFixed(2) : 0, cashOut: value.lt(0) ? value.negated().toFixed(2) : 0, runningBalance: D(result.summary.closingBalance).plus(value).toFixed(2), entryType, entryNo: await getNextEntryNo(userId, entryType), referenceType, referenceId, partyName, accountHeadId, ...classification } });
   }
 }
 

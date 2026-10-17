@@ -63,7 +63,7 @@ async function create(req, res, next) {
     if (!employeeName || !employeeName.trim()) {
       return res.status(400).json({ success: false, message: 'Employee name is required.' });
     }
-    if (!salary || isNaN(parseFloat(salary)) || parseFloat(salary) < 0) {
+    if (salary === undefined || salary === null || salary === '' || isNaN(parseFloat(salary)) || parseFloat(salary) < 0) {
       return res.status(400).json({ success: false, message: 'Valid salary amount is required.' });
     }
 

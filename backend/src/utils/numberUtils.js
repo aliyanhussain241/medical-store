@@ -7,7 +7,8 @@ const { Decimal } = require('@prisma/client/runtime/library');
 
 /**
  * Calculate line item total:
- *   total = qty * unitPrice * (1 - discount/100)
+ *   gross = round(qty * unitPrice, 2)
+ *   total = gross - round(gross * discount/100, 2), half-up
  * Returns Prisma-compatible Decimal string
  */
 function calculateLine(qty, unitPrice, discountPct = 0) {

@@ -304,10 +304,6 @@ async function importProducts(req, res, next) {
         return;
       }
 
-      // Purchase price — fall back to MRP, then to 0
-      let effectivePurchasePrice = purchasePriceRaw || mrpRaw || '0';
-      if (isNaN(parseFloat(effectivePurchasePrice))) effectivePurchasePrice = '0';
-
       // Expiry date
       let expiryDate = null;
       if (expiryRaw instanceof Date) {
@@ -322,6 +318,7 @@ async function importProducts(req, res, next) {
       const unitValue = rawUnit || 'strip';
 
       try {
+        if (expiryRaw && !expiryDate) throw new Error('Expiry date is invalid.');
         if (!purchasePriceRaw) throw new Error('Purchase cost is required; an unknown cost cannot be inferred from MRP.');
         toCreate.push({ userId: req.user.id, productName, category: category || null, unit: unitValue, batchNo: batchNo || null, expiryDate,
           purchasePrice: number(purchasePriceRaw, 'purchase price').toFixed(2), salePrice: number(effectiveSalePrice, 'sale price', { min: '0.01' }).toFixed(2),

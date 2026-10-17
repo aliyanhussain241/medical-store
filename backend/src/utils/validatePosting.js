@@ -8,6 +8,7 @@ async function owned(model, id, userId, label) {
 
 async function validatePosting(req) {
   const b = req.body || {};
+  if ((req.originalUrl || '').includes('/cash-book') && b.category !== undefined && !['', 'EXPENSE'].includes(b.category)) bad('Invalid cash entry category.');
   for (const key of ['invoiceDate', 'purchaseDate', 'transactionDate', 'paymentDate', 'expiryDate', 'listDate']) {
     if (b[key] !== undefined && b[key] !== null && b[key] !== '') {
       if (typeof b[key] !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(b[key])) bad(`Invalid ${key}.`);
