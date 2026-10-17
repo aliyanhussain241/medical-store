@@ -375,6 +375,7 @@ function generateLedgerPDF(ledgerData, user, partyType) {
     let sy = afterTable + 16;
     const { totalDebit, totalCredit, closingBalance } = ledgerData.summary;
     const summaryRows = [
+      ['Opening Balance:', formatPKR(ledgerData.openingBalance)],
       ['Total Debit:', formatPKR(totalDebit)],
       ['Total Credit:', formatPKR(totalCredit)],
       ['Closing Balance:', formatPKR(closingBalance)],
@@ -526,7 +527,7 @@ function generateProfitPDF(profitData, user, dateRange) {
     doc.on('error', reject);
 
     const subtitle = dateRange ? `Period: ${formatDate(dateRange.from)} to ${formatDate(dateRange.to)}` : '';
-    drawHeader(doc, user, 'DAILY PROFIT & LOSS REPORT', subtitle);
+    drawHeader(doc, user, profitData.complete === false ? 'GROSS PROFIT — UNVERIFIED HISTORICAL COST' : 'DAILY GROSS PROFIT REPORT', subtitle);
 
     const headers = ['Date', 'Total Sales', 'Total Cost', 'Gross Profit', 'Margin %'];
     const colWidths = [75, 120, 110, 110, 100];
@@ -844,7 +845,7 @@ function generateTrialBalancePDF(data, user) {
     y += 28;
 
     // Balance check
-    const statusText = data.isBalanced
+    const statusText = data.complete === false ? "UNVERIFIED: historical cost or classification evidence is incomplete." : data.isBalanced
       ? '✓ Trial Balance is BALANCED — Debit and Credit totals match.'
       : `⚠ WARNING: Trial Balance is NOT BALANCED — Difference: ${formatPKR(data.difference)}`;
     const statusColor = data.isBalanced ? COLORS.paid : COLORS.alert;
@@ -933,7 +934,7 @@ function generateBalanceSheetPDF(data, user) {
     y += 8;
 
     // Balance check
-    const statusText = data.isBalanced
+    const statusText = data.complete === false ? "UNVERIFIED: historical cost or classification evidence is incomplete." : data.isBalanced
       ? '✓ Balance Sheet is BALANCED — Assets = Liabilities + Equity'
       : `⚠ WARNING: Balance Sheet is NOT BALANCED — Difference: ${formatPKR(data.difference)}`;
     const statusColor = data.isBalanced ? COLORS.paid : COLORS.alert;

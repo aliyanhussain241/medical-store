@@ -490,7 +490,7 @@ async function generateProfitExcel(profitData, user) {
   ];
   sheet.columns = cols;
 
-  addBusinessHeader(sheet, user, 'DAILY PROFIT & LOSS REPORT', cols.length);
+  addBusinessHeader(sheet, user, profitData.complete === false ? 'GROSS PROFIT — UNVERIFIED HISTORICAL COST' : 'DAILY GROSS PROFIT REPORT', cols.length);
   sheet.addRow([]);
 
   const headerRow = sheet.addRow(cols.map((c) => c.header));
@@ -785,7 +785,7 @@ async function generateTrialBalanceExcel(data, user) {
   totalRow.height = 24;
 
   // Balance check row
-  const statusText = data.isBalanced
+  const statusText = data.complete === false ? "UNVERIFIED: historical cost or classification evidence is incomplete." : data.isBalanced
     ? '✓ Trial Balance is BALANCED'
     : `⚠ NOT BALANCED — Difference: Rs ${data.difference.toFixed(2)}`;
   sheet.addRow([]);
@@ -861,7 +861,7 @@ async function generateBalanceSheetExcel(data, user) {
 
   // Balance check
   sheet.addRow([]);
-  const statusText = data.isBalanced
+  const statusText = data.complete === false ? "UNVERIFIED: historical cost or classification evidence is incomplete." : data.isBalanced
     ? '✓ Balance Sheet is BALANCED — Assets = Liabilities + Equity'
     : `⚠ NOT BALANCED — Difference: Rs ${data.difference.toFixed(2)}`;
   const statusRow = sheet.addRow([statusText, '']);
