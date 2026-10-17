@@ -1,5 +1,11 @@
 -- Additive schema ONLY. No backfill, financial repair, or automatic deployment.
 -- Apply first to the owner-approved disposable database through the guarded runner.
+ALTER TYPE "ReferenceType" ADD VALUE IF NOT EXISTS 'OPENING_BALANCE_V2';
+ALTER TYPE "ReferenceType" ADD VALUE IF NOT EXISTS 'PURCHASE_V2';
+ALTER TYPE "ReferenceType" ADD VALUE IF NOT EXISTS 'SUPPLIER_PAYMENT_V2';
+ALTER TYPE "ReferenceType" ADD VALUE IF NOT EXISTS 'INVOICE_INITIAL_PAYMENT';
+ALTER TYPE "ReferenceType" ADD VALUE IF NOT EXISTS 'INVOICE_PAYMENT';
+ALTER TYPE "ReferenceType" ADD VALUE IF NOT EXISTS 'INVOICE_REVERSAL';
 BEGIN;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS initial_paid_amount DECIMAL(15,2);
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS recorded_cost DECIMAL(15,2);
