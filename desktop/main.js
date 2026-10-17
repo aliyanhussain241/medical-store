@@ -65,10 +65,8 @@ async function startServer() {
     }
 
     const prisma = require('./backend/src/utils/prismaClient');
-    const { PrismaClient } = require('./generated/prisma-client');
-    const { backupSqlite } = require('./backend/src/utils/sqliteBackup');
     const { ensureSqlitePostingSchema } = require('./backend/src/utils/sqlitePostingSchema');
-    await ensureSqlitePostingSchema({ prisma, beforeUpgrade: () => backupSqlite({ prisma, PrismaClient, backupDir: BACKUP_DIR }) });
+    await ensureSqlitePostingSchema({ prisma });
 
     // Now require and start the Express app
     const expressApp = require('./backend/src/app');
