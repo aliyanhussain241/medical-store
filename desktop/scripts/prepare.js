@@ -74,18 +74,10 @@ execSync(`npx prisma generate --schema="${schemaPath}"`, {
 });
 console.log('   ✅ Prisma Client generated for SQLite\n');
 
-// ── Step 4: Create template SQLite database ───────────────────
-console.log('📦 Step 4: Creating template database...');
-const templateDbPath = path.join(DESKTOP, 'template.db');
-// Remove old template if exists
-if (fs.existsSync(templateDbPath)) fs.unlinkSync(templateDbPath);
-
-execSync(`npx prisma db push --schema="${schemaPath}" --skip-generate --accept-data-loss`, {
-  cwd: DESKTOP,
-  stdio: 'inherit',
-  env: { ...process.env, DATABASE_URL: `file:${templateDbPath}` },
-});
-console.log('   ✅ Template database created (schema applied)\n');
+// Template creation is an explicit release step, never part of the build.
+if (!fs.existsSync(path.join(DESKTOP, 'template.db'))) {
+  throw new Error('Missing template.db. Run npm run db:template explicitly before packaging.');
+}
 
 console.log('🎉 Desktop build preparation complete!');
 console.log('   Run "npm run build" to create the .exe installer.\n');

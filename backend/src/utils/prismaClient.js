@@ -10,10 +10,16 @@ const { PrismaClient } = require('@prisma/client');
 // Create a standard pg connection pool
 const connectionString = process.env.DATABASE_URL;
 const isNeonOrCloud = connectionString && (connectionString.includes('neon.tech') || connectionString.includes('sslmode=require'));
+const verifiedConnectionString = connectionString ? new URL(connectionString) : null;
+if (isNeonOrCloud) {
+  // pg parses SSL URL parameters after explicit options; avoid an sslmode=require
+  // URL silently overriding certificate verification.
+  for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) verifiedConnectionString.searchParams.delete(key);
+}
 
 const pool = new Pool({
-  connectionString,
-  ssl: isNeonOrCloud ? { rejectUnauthorized: false } : undefined,
+  connectionString: verifiedConnectionString?.toString(),
+  ssl: isNeonOrCloud ? { rejectUnauthorized: true, ...(process.env.DATABASE_CA_CERT && { ca: process.env.DATABASE_CA_CERT }) } : undefined,
   max: 3,                         // keep pool small for shared hosting thread limits
   idleTimeoutMillis: 30000,       // close idle connections after 30s
   connectionTimeoutMillis: 10000, // 10s connection timeout

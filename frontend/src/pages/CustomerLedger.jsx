@@ -60,6 +60,7 @@ export default function CustomerLedger() {
 
   return (
     <div className="space-y-4">
+      {ledger && <p>Opening balance: <strong>{pkr(ledger.openingBalance)}</strong></p>}
       <PageHeader
         title="Customer Ledger"
         subtitle="Track customer debits, credits, running balance, and statement exports"

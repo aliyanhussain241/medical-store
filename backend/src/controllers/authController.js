@@ -3,9 +3,10 @@
 // Handles: signup, login, refresh token, logout, password reset
 // ─────────────────────────────────────────────────────────────
 const bcrypt = require('bcryptjs');
+const { randomUUID } = require('crypto');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 const getJwtSecret = () => {
   if (!process.env.JWT_SECRET) throw new Error('FATAL: JWT_SECRET environment variable is required');
@@ -29,7 +30,7 @@ function generateRefreshToken(user) {
   return jwt.sign(
     { userId: user.id },
     getRefreshSecret(),
-    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d' }
+    { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d', jwtid: randomUUID() }
   );
 }
 
@@ -53,19 +54,16 @@ async function signup(req, res, next) {
       return res.status(409).json({ success: false, message: 'An account with this email already exists.' });
     }
 
+    getJwtSecret();
+    getRefreshSecret();
     const passwordHash = await bcrypt.hash(password, 12);
-    const user = await prisma.user.create({
-      data: { businessName, ownerName, email, passwordHash, phone, address, businessType: 'PHARMACY' },
+    const issued = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({ data: { businessName, ownerName, email, passwordHash, phone, address, businessType: 'PHARMACY' } });
+      const accessToken = generateAccessToken(user), refreshTokenStr = generateRefreshToken(user);
+      await tx.refreshToken.create({ data: { token: refreshTokenStr, userId: user.id, expiresAt: new Date(jwt.decode(refreshTokenStr).exp * 1000) } });
+      return { user, accessToken, refreshTokenStr };
     });
-
-    // Issue tokens
-    const accessToken = generateAccessToken(user);
-    const refreshTokenStr = generateRefreshToken(user);
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
-    await prisma.refreshToken.create({
-      data: { token: refreshTokenStr, userId: user.id, expiresAt },
-    });
+    const { user, accessToken, refreshTokenStr } = issued;
 
     res.status(201).json({
       success: true,
@@ -101,7 +99,7 @@ async function login(req, res, next) {
 
     const accessToken = generateAccessToken(user);
     const refreshTokenStr = generateRefreshToken(user);
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(jwt.decode(refreshTokenStr).exp * 1000);
 
     await prisma.refreshToken.create({
       data: { token: refreshTokenStr, userId: user.id, expiresAt },
@@ -134,33 +132,25 @@ async function refresh(req, res, next) {
       return res.status(401).json({ success: false, message: 'Invalid or expired refresh token. Please log in again.' });
     }
 
-    const stored = await prisma.refreshToken.findUnique({ where: { token: refreshToken } });
-    if (!stored || stored.expiresAt < new Date()) {
-      return res.status(401).json({ success: false, message: 'Session expired. Please log in again.' });
-    }
-
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'User not found.' });
-    }
-
-    // Rotate: delete old token (scoped to user), issue new pair
-    await prisma.refreshToken.delete({ where: { token: refreshToken, userId: decoded.userId } });
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-    await prisma.refreshToken.create({
-      data: { token: newRefreshToken, userId: user.id, expiresAt },
+    const result = await prisma.$transaction(async (tx) => {
+      const stored = await tx.refreshToken.findUnique({ where: { token: refreshToken } });
+      if (!stored || stored.userId !== decoded.userId || stored.expiresAt <= new Date()) {
+        throw Object.assign(new Error('Session expired. Please log in again.'), { statusCode: 401 });
+      }
+      const consumed = await tx.refreshToken.deleteMany({ where: { id: stored.id, token: refreshToken, userId: decoded.userId } });
+      if (consumed.count !== 1) throw Object.assign(new Error('Session already refreshed. Please log in again.'), { statusCode: 401 });
+      const user = await tx.user.findUnique({ where: { id: decoded.userId } });
+      if (!user) throw Object.assign(new Error('Session expired.'), { statusCode: 401 });
+      const accessToken = generateAccessToken(user);
+      const token = generateRefreshToken(user);
+      await tx.refreshToken.create({ data: { token, userId: user.id, expiresAt: new Date(jwt.decode(token).exp * 1000) } });
+      return { accessToken, refreshToken: token };
     });
-
-    // Opportunistic cleanup: remove expired refresh tokens
-    await prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {});
 
     res.json({
       success: true,
-      accessToken: newAccessToken,
-      refreshToken: newRefreshToken,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
     });
   } catch (err) {
     next(err);
@@ -217,6 +207,8 @@ async function updateProfile(req, res, next) {
 // ── PUT /api/auth/change-password ────────────────────────────
 async function changePassword(req, res, next) {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
     const { currentPassword, newPassword } = req.body;
     const user = await prisma.user.findUnique({ where: { id: req.user.id } });
     const valid = await bcrypt.compare(currentPassword, user.passwordHash);
@@ -224,9 +216,11 @@ async function changePassword(req, res, next) {
       return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
     }
     const passwordHash = await bcrypt.hash(newPassword, 12);
-    await prisma.user.update({ where: { id: req.user.id }, data: { passwordHash } });
-    // Invalidate all refresh tokens
-    await prisma.refreshToken.deleteMany({ where: { userId: req.user.id } });
+    await prisma.$transaction(async (tx) => {
+      const changed = await tx.user.updateMany({ where: { id: req.user.id, passwordHash: user.passwordHash }, data: { passwordHash } });
+      if (changed.count !== 1) throw Object.assign(new Error('Password changed. Please log in again.'), { statusCode: 409 });
+      await tx.refreshToken.deleteMany({ where: { userId: req.user.id } });
+    });
     res.json({ success: true, message: 'Password changed successfully. Please log in again.' });
   } catch (err) {
     next(err);

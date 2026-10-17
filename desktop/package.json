@@ -7,6 +7,7 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
+    "db:template": "node scripts/create-template.js",
     "build": "node scripts/prepare.js && electron-builder --win",
     "build:dir": "node scripts/prepare.js && electron-builder --win --dir",
     "postinstall": "electron-builder install-app-deps"

@@ -3,8 +3,7 @@
 // Employee register + salary payment voucher
 // Salary payments create CashBook/BankBook EXPENSE entries
 // ─────────────────────────────────────────────────────────────
-const prisma = require('../utils/prismaClient');
-const { getNextEntryNo } = require('./cashBookController');
+const prisma = require('../utils/db');
 
 // ── GET /api/employees ────────────────────────────────────────
 async function list(req, res, next) {
@@ -64,7 +63,7 @@ async function create(req, res, next) {
     if (!employeeName || !employeeName.trim()) {
       return res.status(400).json({ success: false, message: 'Employee name is required.' });
     }
-    if (!salary || isNaN(parseFloat(salary)) || parseFloat(salary) < 0) {
+    if (salary === undefined || salary === null || salary === '' || isNaN(parseFloat(salary)) || parseFloat(salary) < 0) {
       return res.status(400).json({ success: false, message: 'Valid salary amount is required.' });
     }
 
@@ -140,132 +139,23 @@ async function remove(req, res, next) {
 // ── POST /api/employees/:id/pay-salary ───────────────────────
 // Records a salary payment → creates CashBook EXPENSE or BankBook EXPENSE entry
 async function paySalary(req, res, next) {
-  try {
-    const { amount, paymentDate, paymentMethod, bankAccountId, narration } = req.body;
-
-    if (!amount || parseFloat(amount) <= 0) {
-      return res.status(400).json({ success: false, message: 'Payment amount must be greater than 0.' });
-    }
-
-    const employee = await prisma.employee.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-    });
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
-
-    const method = (paymentMethod || 'CASH').toUpperCase();
-    const payAmt = parseFloat(amount);
-    const txDate = paymentDate ? new Date(paymentDate) : new Date();
-
-    // Find the "Salary" account head (EXPENSE category) — create default if not exists
-    let salaryHead = await prisma.accountHead.findFirst({
-      where: { userId: req.user.id, category: 'EXPENSE', name: { equals: 'Salary', mode: 'insensitive' } },
-    });
-    if (!salaryHead) {
-      salaryHead = await prisma.accountHead.create({
-        data: {
-          userId: req.user.id,
-          name: 'Salary',
-          category: 'EXPENSE',
-          description: 'Employee salary payments',
-        },
-      });
-    }
-
-    let bankAccount = null;
-    if (method === 'BANK') {
-      if (!bankAccountId) {
-        return res.status(400).json({ success: false, message: 'Bank account is required when payment method is Bank.' });
-      }
-      bankAccount = await prisma.bankAccount.findFirst({ where: { id: bankAccountId, userId: req.user.id } });
-      if (!bankAccount) {
-        return res.status(404).json({ success: false, message: 'Bank account not found.' });
-      }
-    }
-
-    const description = `Salary — ${employee.employeeName}${narration ? ` (${narration})` : ''}`;
-
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create the salary payment record
-      const payment = await tx.salaryPayment.create({
-        data: {
-          userId: req.user.id,
-          employeeId: employee.id,
-          paymentDate: txDate,
-          amount: payAmt,
-          paymentMethod: method,
-          bankAccountId: method === 'BANK' ? bankAccountId : null,
-          narration: narration || null,
-        },
-      });
-
-      if (method === 'BANK') {
-        // 2a. Bank payment: credit bank account (money out)
-        const lastBankEntry = await tx.bankBookEntry.findFirst({
-          where: { userId: req.user.id, bankAccountId },
-          orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-        });
-        const bankRunning = parseFloat(lastBankEntry?.runningBalance ?? bankAccount.openingBalance);
-        const newBankBalance = bankRunning - payAmt;
-
-        await tx.bankBookEntry.create({
-          data: {
-            userId: req.user.id,
-            bankAccountId,
-            transactionDate: txDate,
-            description,
-            debit: 0,
-            credit: payAmt,
-            runningBalance: newBankBalance,
-            referenceType: 'SALARY',
-            referenceId: payment.id,
-            narration: narration || null,
-            partyName: employee.employeeName.toUpperCase(),
-            accountHeadId: salaryHead.id,
-          },
-        });
-
-        await tx.bankAccount.update({
-          where: { id: bankAccountId },
-          data: { currentBalance: newBankBalance },
-        });
-      } else {
-        // 2b. Cash payment: cashOut entry (EXPENSE type)
-        const lastCash = await tx.cashBookEntry.findFirst({
-          where: { userId: req.user.id },
-          orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-        });
-        const cashRunning = parseFloat(lastCash?.runningBalance || 0);
-        const mcpNo = await getNextEntryNo(req.user.id, 'MCP');
-
-        await tx.cashBookEntry.create({
-          data: {
-            userId: req.user.id,
-            transactionDate: txDate,
-            description: `MCP# ${mcpNo}, ${description}`,
-            cashIn: 0,
-            cashOut: payAmt,
-            runningBalance: cashRunning - payAmt,
-            referenceType: 'SALARY',
-            referenceId: payment.id,
-            entryType: 'MCP',
-            entryNo: mcpNo,
-            partyName: employee.employeeName.toUpperCase(),
-            accountHeadId: salaryHead.id,
-          },
-        });
-      }
-
-      return payment;
-    }, { maxWait: 15000, timeout: 30000 });
-
-    res.status(201).json({
-      success: true,
-      message: `Salary of ${payAmt} paid to ${employee.employeeName} via ${method}.`,
-      data: result,
-    });
-  } catch (err) {
-    next(err);
-  }
+ try {
+  const { number, enumeration } = require('../utils/input');
+  const { dateOnly } = require('../utils/businessDate');
+  const { owned } = require('../utils/validatePosting');
+  const { postMoney } = require('../services/postingService');
+  const userId = req.user.id, b = req.body;
+  const employee = await prisma.employee.findFirst({ where: { id: req.params.id, userId } });
+  if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
+  const amount = number(b.amount, 'salary payment', { min: '0.01' });
+  const method = enumeration(b.paymentMethod, ['CASH', 'BANK'], 'payment method', 'CASH');
+  if (method === 'BANK') await owned('bankAccount', b.bankAccountId, userId, 'Bank account');
+  let head = await prisma.accountHead.findFirst({ where: { userId, category: 'EXPENSE', name: 'Salary' } });
+  if (!head) head = await prisma.accountHead.create({ data: { userId, category: 'EXPENSE', name: 'Salary', description: 'Employee salary payments' } });
+  const payment = await prisma.salaryPayment.create({ data: { userId, employeeId: employee.id, amount: amount.toFixed(2), paymentDate: dateOnly(b.paymentDate), paymentMethod: method, bankAccountId: method === 'BANK' ? b.bankAccountId : null, narration: b.narration || null } });
+  await postMoney({ userId, method, bankAccountId: b.bankAccountId, date: b.paymentDate, amount: amount.negated(), description: 'Salary — ' + employee.employeeName, referenceType: 'SALARY', referenceId: payment.id, partyName: employee.employeeName.toUpperCase(), accountHeadId: head.id });
+  res.status(201).json({ success: true, message: 'Salary payment recorded.', data: payment });
+ } catch (error) { next(error); }
 }
 
 // ── GET /api/employees/:id/salary-history ────────────────────
@@ -305,3 +195,9 @@ async function salaryHistory(req, res, next) {
 }
 
 module.exports = { list, getOne, create, update, remove, paySalary, salaryHistory };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

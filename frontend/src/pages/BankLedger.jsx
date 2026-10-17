@@ -1,3 +1,4 @@
+import { businessDay } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/BankLedger.jsx — Bank account transaction history
 // Mirrors CompanyLedger.jsx pattern + manual entry support
@@ -51,6 +52,7 @@ export default function BankLedger() {
 
   return (
     <div className="space-y-4">
+      {ledger && <p>Opening balance: <strong>{pkr(ledger.openingBalance)}</strong></p>}
       <PageHeader
         title="Bank Ledger"
         subtitle="Track bank deposits, withdrawals, cheques, and running statement balances"
@@ -246,7 +248,7 @@ function ManualEntryModal({ bankAccountId, bankName, onClose, onSuccess }) {
   const [description, setDescription] = useState('');
   const [narration, setNarration] = useState('');
   const [partyName, setPartyName] = useState('');
-  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().split('T')[0]);
+  const [transactionDate, setTransactionDate] = useState(businessDay());
 
   const mutation = useMutation({
     mutationFn: (data) => bankBookAPI.create(data),

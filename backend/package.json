@@ -7,13 +7,17 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "build": "prisma db push --skip-generate && prisma generate",
-    "postinstall": "prisma db push --skip-generate && prisma generate",
-    "db:migrate": "node node_modules/prisma/build/index.js migrate dev",
+    "build": "prisma generate",
+    "db:migrate": "node scripts/test-database.js --migrate",
     "db:generate": "node node_modules/prisma/build/index.js generate",
-    "db:push": "node node_modules/prisma/build/index.js db push",
-    "db:seed": "node prisma/seed.js",
-    "db:studio": "node node_modules/prisma/build/index.js studio"
+    "db:push": "node scripts/test-database.js --init",
+    "db:seed": "node scripts/test-database.js --seed",
+    "db:studio": "node node_modules/prisma/build/index.js studio",
+    "test": "node --test test/*.test.js",
+    "test:database": "node scripts/test-database.js",
+    "db:migrate:test": "node scripts/test-database.js --migrate",
+    "audit:discrepancies": "node scripts/discrepancies.js",
+    "test:backup": "node scripts/test-database.js --backup"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

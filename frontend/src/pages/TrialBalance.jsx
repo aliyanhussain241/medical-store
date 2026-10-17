@@ -1,3 +1,4 @@
+import { businessDay } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/TrialBalance.jsx
 // Trial Balance report — all accounts with Debit/Credit columns
@@ -14,12 +15,12 @@ function fmtPKR(n) {
 }
 
 export default function TrialBalance() {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDay();
   const [asOn, setAsOn] = useState(todayStr);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, isError, refetch } = useQuery({
     queryKey: ['trial-balance', asOn],
     queryFn: () => reportsAPI.trialBalance({ asOn }).then((r) => r.data?.data),
   });
@@ -61,8 +62,11 @@ export default function TrialBalance() {
     finally { setExportingExcel(false); }
   }
 
+  if (isError) return <div role="alert">Report could not be loaded. <button className="btn btn-outline" onClick={() => refetch()}>Retry</button></div>;
+
   return (
     <div className="space-y-4">
+      {report?.complete === false && <div role="status"><strong>Unverified historical figures.</strong> Missing cost or classification evidence prevents reconciliation. {(report.warnings || []).slice(0, 3).map((warning) => <p key={warning}>{warning}</p>)}</div>}
       <PageHeader
         title="Trial Balance"
         subtitle="Comprehensive general ledger audit statement verifying debit and credit equality"

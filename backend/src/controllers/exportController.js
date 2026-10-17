@@ -2,10 +2,12 @@
 // src/controllers/exportController.js
 // Handles all PDF + Excel export routes (single controller)
 // ─────────────────────────────────────────────────────────────
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 const { generateInvoicePDF, generateLedgerPDF, generateCashBookPDF, generateProfitPDF, generateOfferListPDF, generatePartyBalancePDF, generateTrialBalancePDF, generateBalanceSheetPDF } = require('../services/pdfService');
 const { generateInvoiceExcel, generateLedgerExcel, generateCashBookExcel, generateProfitExcel, generateOfferListExcel, generatePartyBalanceExcel, generateTrialBalanceExcel, generateBalanceSheetExcel } = require('../services/excelService');
-const { getPartyBalanceData, getFinancialData } = require('./reportController');
+const { getPartyBalanceData, getFinancialData, getProfitData } = require('./reportController');
+const { partyStatement, bankStatement, cashStatement } = require('../services/statementService');
+const { trialBalanceData, balanceSheetData } = require('../services/financialReportService');
 
 async function getUser(userId) {
   return prisma.user.findUnique({ where: { id: userId } });
@@ -54,233 +56,73 @@ async function invoiceExcel(req, res, next) {
 
 // ── GET /api/export/ledger/customer/:id/pdf ───────────────────
 async function customerLedgerPDF(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { from, to } = req.query;
-    const customer = await prisma.customer.findFirst({ where: { id, userId: req.user.id } });
-    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found.' });
-
-    const where = {
-      userId: req.user.id, partyType: 'CUSTOMER', partyId: id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const transactions = await prisma.ledgerTransaction.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-    const totalDebit = transactions.reduce((s, t) => s + parseFloat(t.debit), 0);
-    const totalCredit = transactions.reduce((s, t) => s + parseFloat(t.credit), 0);
-    const ledgerData = { customer, transactions, summary: { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), closingBalance: (totalDebit - totalCredit).toFixed(2) } };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateLedgerPDF(ledgerData, user, 'customer');
-
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="CustomerLedger-${customer.customerName}.pdf"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await partyStatement(prisma, req.user.id, 'CUSTOMER', req.params.id, req.query);
+  const buffer = await generateLedgerPDF(data, await getUser(req.user.id), 'customer');
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="customer-ledger.pdf"' });
+  res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/ledger/customer/:id/excel ─────────────────
 async function customerLedgerExcel(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { from, to } = req.query;
-    const customer = await prisma.customer.findFirst({ where: { id, userId: req.user.id } });
-    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found.' });
-
-    const where = {
-      userId: req.user.id, partyType: 'CUSTOMER', partyId: id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const transactions = await prisma.ledgerTransaction.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-    const totalDebit = transactions.reduce((s, t) => s + parseFloat(t.debit), 0);
-    const totalCredit = transactions.reduce((s, t) => s + parseFloat(t.credit), 0);
-    const ledgerData = { customer, transactions, summary: { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), closingBalance: (totalDebit - totalCredit).toFixed(2) } };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateLedgerExcel(ledgerData, user, 'customer');
-
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="CustomerLedger-${customer.customerName}.xlsx"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await partyStatement(prisma, req.user.id, 'CUSTOMER', req.params.id, req.query);
+  const buffer = await generateLedgerExcel(data, await getUser(req.user.id), 'customer');
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="customer-ledger.xlsx"' });
+  res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/ledger/company/:id/pdf ────────────────────
 async function companyLedgerPDF(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { from, to } = req.query;
-    const company = await prisma.company.findFirst({ where: { id, userId: req.user.id } });
-    if (!company) return res.status(404).json({ success: false, message: 'Company not found.' });
-
-    const where = {
-      userId: req.user.id, partyType: 'COMPANY', partyId: id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const transactions = await prisma.ledgerTransaction.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-    const totalDebit = transactions.reduce((s, t) => s + parseFloat(t.debit), 0);
-    const totalCredit = transactions.reduce((s, t) => s + parseFloat(t.credit), 0);
-    const ledgerData = { company, transactions, summary: { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), closingBalance: (totalDebit - totalCredit).toFixed(2) } };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateLedgerPDF(ledgerData, user, 'company');
-
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="CompanyLedger-${company.companyName}.pdf"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await partyStatement(prisma, req.user.id, 'COMPANY', req.params.id, req.query);
+  const buffer = await generateLedgerPDF(data, await getUser(req.user.id), 'company');
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="company-ledger.pdf"' });
+  res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/ledger/company/:id/excel ──────────────────
 async function companyLedgerExcel(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { from, to } = req.query;
-    const company = await prisma.company.findFirst({ where: { id, userId: req.user.id } });
-    if (!company) return res.status(404).json({ success: false, message: 'Company not found.' });
-
-    const where = {
-      userId: req.user.id, partyType: 'COMPANY', partyId: id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const transactions = await prisma.ledgerTransaction.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-    const totalDebit = transactions.reduce((s, t) => s + parseFloat(t.debit), 0);
-    const totalCredit = transactions.reduce((s, t) => s + parseFloat(t.credit), 0);
-    const ledgerData = { company, transactions, summary: { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), closingBalance: (totalDebit - totalCredit).toFixed(2) } };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateLedgerExcel(ledgerData, user, 'company');
-
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="CompanyLedger-${company.companyName}.xlsx"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await partyStatement(prisma, req.user.id, 'COMPANY', req.params.id, req.query);
+  const buffer = await generateLedgerExcel(data, await getUser(req.user.id), 'company');
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="company-ledger.xlsx"' });
+  res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/cash-book/pdf ─────────────────────────────
 async function cashBookPDF(req, res, next) {
-  try {
-    const { from, to } = req.query;
-    const where = {
-      userId: req.user.id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const entries = await prisma.cashBookEntry.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-
-    // Opening balance
-    let openingBalance = 0;
-    if (from) {
-      const beforeEntry = await prisma.cashBookEntry.findFirst({
-        where: { userId: req.user.id, transactionDate: { lt: new Date(from) } },
-        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-        select: { runningBalance: true },
-      });
-      openingBalance = parseFloat(beforeEntry?.runningBalance || 0);
-    }
-
-    const totalIn = entries.reduce((s, e) => s + parseFloat(e.cashIn), 0);
-    const totalOut = entries.reduce((s, e) => s + parseFloat(e.cashOut), 0);
-
-    // Add sequence numbers
-    let seq = 0;
-    const enrichedEntries = entries.map((e) => ({ ...e, seq: ++seq }));
-
-    const cashData = {
-      data: enrichedEntries,
-      openingBalance: openingBalance.toFixed(2),
-      summary: { totalIn: totalIn.toFixed(2), totalOut: totalOut.toFixed(2), net: (totalIn - totalOut).toFixed(2) },
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateCashBookPDF(cashData, user, from && to ? { from, to } : null);
-
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="CashBook.pdf"' });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await cashStatement(prisma, req.user.id, { from: req.query.from, to: req.query.to });
+  const buffer = await generateCashBookPDF({ ...data, data: data.entries }, await getUser(req.user.id), req.query);
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="cash-book.pdf"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/cash-book/excel ───────────────────────────
 async function cashBookExcel(req, res, next) {
-  try {
-    const { from, to } = req.query;
-    const where = {
-      userId: req.user.id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const entries = await prisma.cashBookEntry.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-
-    // Opening balance
-    let openingBalance = 0;
-    if (from) {
-      const beforeEntry = await prisma.cashBookEntry.findFirst({
-        where: { userId: req.user.id, transactionDate: { lt: new Date(from) } },
-        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-        select: { runningBalance: true },
-      });
-      openingBalance = parseFloat(beforeEntry?.runningBalance || 0);
-    }
-
-    const totalIn = entries.reduce((s, e) => s + parseFloat(e.cashIn), 0);
-    const totalOut = entries.reduce((s, e) => s + parseFloat(e.cashOut), 0);
-
-    // Add sequence numbers
-    let seq = 0;
-    const enrichedEntries = entries.map((e) => ({ ...e, seq: ++seq }));
-
-    const cashData = {
-      data: enrichedEntries,
-      openingBalance: openingBalance.toFixed(2),
-      summary: { totalIn: totalIn.toFixed(2), totalOut: totalOut.toFixed(2), net: (totalIn - totalOut).toFixed(2) },
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateCashBookExcel(cashData, user, from && to ? { from, to } : null);
-
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="CashBook.xlsx"' });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await cashStatement(prisma, req.user.id, { from: req.query.from, to: req.query.to });
+  const buffer = await generateCashBookExcel({ ...data, data: data.entries }, await getUser(req.user.id), req.query);
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="cash-book.xlsx"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/profit/pdf ────────────────────────────────
 async function profitPDF(req, res, next) {
-  try {
-    const { from, to } = req.query;
-    const where = {
-      userId: req.user.id,
-      ...((from || to) && { reportDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const records = await prisma.dailyProfit.findMany({ where, orderBy: { reportDate: 'asc' } });
-    const totalSales = records.reduce((s, r) => s + parseFloat(r.totalSales), 0);
-    const totalCost = records.reduce((s, r) => s + parseFloat(r.totalCost), 0);
-    const totalProfit = records.reduce((s, r) => s + parseFloat(r.totalProfit), 0);
-    const profitData = { data: records, summary: { totalSales: totalSales.toFixed(2), totalCost: totalCost.toFixed(2), totalProfit: totalProfit.toFixed(2), profitMargin: totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : '0.0' } };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateProfitPDF(profitData, user, from && to ? { from, to } : null);
-
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="ProfitReport.pdf"' });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await getProfitData(req.user.id, req.query.from, req.query.to);
+  const buffer = await generateProfitPDF(data, await getUser(req.user.id), req.query.from && req.query.to ? req.query : null);
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="gross-profit.pdf"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/profit/excel ──────────────────────────────
 async function profitExcel(req, res, next) {
-  try {
-    const { from, to } = req.query;
-    const where = {
-      userId: req.user.id,
-      ...((from || to) && { reportDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const records = await prisma.dailyProfit.findMany({ where, orderBy: { reportDate: 'asc' } });
-    const totalSales = records.reduce((s, r) => s + parseFloat(r.totalSales), 0);
-    const totalCost = records.reduce((s, r) => s + parseFloat(r.totalCost), 0);
-    const totalProfit = records.reduce((s, r) => s + parseFloat(r.totalProfit), 0);
-    const profitData = { data: records, summary: { totalSales: totalSales.toFixed(2), totalCost: totalCost.toFixed(2), totalProfit: totalProfit.toFixed(2), profitMargin: totalSales > 0 ? ((totalProfit / totalSales) * 100).toFixed(1) : '0.0' } };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateProfitExcel(profitData, user);
-
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="ProfitReport.xlsx"' });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await getProfitData(req.user.id, req.query.from, req.query.to);
+  const buffer = await generateProfitExcel(data, await getUser(req.user.id), req.query.from && req.query.to ? req.query : null);
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="gross-profit.xlsx"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── Helper: get formatted offer list data for export ───────────
 async function getOfferListData(id, userId) {
   const list = await prisma.offerList.findFirst({
     where: { id, userId },
@@ -359,63 +201,23 @@ async function offerListExcel(req, res, next) {
 
 // ── GET /api/export/ledger/bank/:id/pdf ────────────────────────
 async function bankLedgerPDF(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { from, to } = req.query;
-    const bankAccount = await prisma.bankAccount.findFirst({ where: { id, userId: req.user.id } });
-    if (!bankAccount) return res.status(404).json({ success: false, message: 'Bank account not found.' });
-
-    const where = {
-      userId: req.user.id, bankAccountId: id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const entries = await prisma.bankBookEntry.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-    const totalDebit = entries.reduce((s, e) => s + parseFloat(e.debit), 0);
-    const totalCredit = entries.reduce((s, e) => s + parseFloat(e.credit), 0);
-    const ledgerData = {
-      bankAccount,
-      transactions: entries,
-      summary: { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), closingBalance: (totalDebit - totalCredit).toFixed(2) },
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateLedgerPDF(ledgerData, user, 'bank');
-
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="BankLedger-${bankAccount.bankName}.pdf"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await bankStatement(prisma, req.user.id, req.params.id, req.query);
+  const buffer = await generateLedgerPDF(data, await getUser(req.user.id), 'bank');
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="bank-ledger.pdf"' });
+  res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/ledger/bank/:id/excel ─────────────────────
 async function bankLedgerExcel(req, res, next) {
-  try {
-    const { id } = req.params;
-    const { from, to } = req.query;
-    const bankAccount = await prisma.bankAccount.findFirst({ where: { id, userId: req.user.id } });
-    if (!bankAccount) return res.status(404).json({ success: false, message: 'Bank account not found.' });
-
-    const where = {
-      userId: req.user.id, bankAccountId: id,
-      ...((from || to) && { transactionDate: { ...(from && { gte: new Date(from) }), ...(to && { lte: new Date(to) }) } }),
-    };
-    const entries = await prisma.bankBookEntry.findMany({ where, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] });
-    const totalDebit = entries.reduce((s, e) => s + parseFloat(e.debit), 0);
-    const totalCredit = entries.reduce((s, e) => s + parseFloat(e.credit), 0);
-    const ledgerData = {
-      bankAccount,
-      transactions: entries,
-      summary: { totalDebit: totalDebit.toFixed(2), totalCredit: totalCredit.toFixed(2), closingBalance: (totalDebit - totalCredit).toFixed(2) },
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateLedgerExcel(ledgerData, user, 'bank');
-
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="BankLedger-${bankAccount.bankName}.xlsx"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = await bankStatement(prisma, req.user.id, req.params.id, req.query);
+  const buffer = await generateLedgerExcel(data, await getUser(req.user.id), 'bank');
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="bank-ledger.xlsx"' });
+  res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/party-balance/pdf ─────────────────────────
 async function partyBalancePDF(req, res, next) {
   try {
     const { asOn, filter = 'DR', area } = req.query;
@@ -449,197 +251,35 @@ async function partyBalanceExcel(req, res, next) {
 
 // ── GET /api/export/trial-balance/pdf ─────────────────────────
 async function trialBalancePDF(req, res, next) {
-  try {
-    const { asOn } = req.query;
-    const fd = await getFinancialData(req.user.id, asOn);
-    // Build the same data structure as the trial balance endpoint
-    const rows = [];
-    let totalDebit = 0;
-    let totalCredit = 0;
-
-    function addRow(section, name, debit, credit) {
-      rows.push({ section, name, debit: Math.abs(debit), credit: Math.abs(credit) });
-      totalDebit += Math.abs(debit);
-      totalCredit += Math.abs(credit);
-    }
-
-    if (Math.abs(fd.cashBalance) > 0.005) {
-      if (fd.cashBalance > 0) addRow('Assets — Cash & Bank', 'Cash in Hand', fd.cashBalance, 0);
-      else addRow('Assets — Cash & Bank', 'Cash in Hand', 0, Math.abs(fd.cashBalance));
-    }
-    for (const ba of fd.bankBalances) {
-      if (Math.abs(ba.balance) > 0.005) {
-        if (ba.balance > 0) addRow('Assets — Cash & Bank', ba.name, ba.balance, 0);
-        else addRow('Assets — Cash & Bank', ba.name, 0, Math.abs(ba.balance));
-      }
-    }
-    if (fd.inventoryValue > 0.005) addRow('Assets — Inventory', 'Inventory (at cost)', fd.inventoryValue, 0);
-    if (fd.totalReceivableDr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — DR)', fd.totalReceivableDr, 0);
-    if (fd.totalReceivableCr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — CR)', 0, fd.totalReceivableCr);
-    if (fd.totalPayableCr > 0.005) addRow('Payables', 'Accounts Payable (Companies — CR)', 0, fd.totalPayableCr);
-    if (fd.totalPayableDr > 0.005) addRow('Payables', 'Accounts Payable (Companies — DR)', fd.totalPayableDr, 0);
-    for (const h of fd.headBalances.filter((h) => h.category === 'LIABILITY')) {
-      if (h.balance > 0) addRow('Liabilities', h.name, 0, h.balance);
-      else addRow('Liabilities', h.name, Math.abs(h.balance), 0);
-    }
-    for (const h of fd.headBalances.filter((h) => h.category === 'INCOME')) {
-      if (h.balance > 0) addRow('Income', h.name, 0, h.balance);
-      else addRow('Income', h.name, Math.abs(h.balance), 0);
-    }
-    for (const h of fd.headBalances.filter((h) => h.category === 'EXPENSE')) {
-      if (h.balance > 0) addRow('Expenses', h.name, h.balance, 0);
-      else addRow('Expenses', h.name, 0, Math.abs(h.balance));
-    }
-
-    const diff = Math.abs(totalDebit - totalCredit);
-    const data = {
-      asOnDate: fd.asOnDate, rows,
-      totalDebit: parseFloat(totalDebit.toFixed(2)),
-      totalCredit: parseFloat(totalCredit.toFixed(2)),
-      difference: parseFloat(diff.toFixed(2)),
-      isBalanced: diff < 0.01,
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateTrialBalancePDF(data, user);
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="TrialBalance-${fd.asOnDate}.pdf"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = trialBalanceData(await getFinancialData(req.user.id, req.query.asOn));
+  const buffer = await generateTrialBalancePDF(data, await getUser(req.user.id));
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="trialBalance.pdf"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/trial-balance/excel ───────────────────────
 async function trialBalanceExcel(req, res, next) {
-  try {
-    const { asOn } = req.query;
-    const fd = await getFinancialData(req.user.id, asOn);
-    const rows = [];
-    let totalDebit = 0;
-    let totalCredit = 0;
-
-    function addRow(section, name, debit, credit) {
-      rows.push({ section, name, debit: Math.abs(debit), credit: Math.abs(credit) });
-      totalDebit += Math.abs(debit);
-      totalCredit += Math.abs(credit);
-    }
-
-    if (Math.abs(fd.cashBalance) > 0.005) {
-      if (fd.cashBalance > 0) addRow('Assets — Cash & Bank', 'Cash in Hand', fd.cashBalance, 0);
-      else addRow('Assets — Cash & Bank', 'Cash in Hand', 0, Math.abs(fd.cashBalance));
-    }
-    for (const ba of fd.bankBalances) {
-      if (Math.abs(ba.balance) > 0.005) {
-        if (ba.balance > 0) addRow('Assets — Cash & Bank', ba.name, ba.balance, 0);
-        else addRow('Assets — Cash & Bank', ba.name, 0, Math.abs(ba.balance));
-      }
-    }
-    if (fd.inventoryValue > 0.005) addRow('Assets — Inventory', 'Inventory (at cost)', fd.inventoryValue, 0);
-    if (fd.totalReceivableDr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — DR)', fd.totalReceivableDr, 0);
-    if (fd.totalReceivableCr > 0.005) addRow('Receivables', 'Accounts Receivable (Customers — CR)', 0, fd.totalReceivableCr);
-    if (fd.totalPayableCr > 0.005) addRow('Payables', 'Accounts Payable (Companies — CR)', 0, fd.totalPayableCr);
-    if (fd.totalPayableDr > 0.005) addRow('Payables', 'Accounts Payable (Companies — DR)', fd.totalPayableDr, 0);
-    for (const h of fd.headBalances.filter((h) => h.category === 'LIABILITY')) {
-      if (h.balance > 0) addRow('Liabilities', h.name, 0, h.balance);
-      else addRow('Liabilities', h.name, Math.abs(h.balance), 0);
-    }
-    for (const h of fd.headBalances.filter((h) => h.category === 'INCOME')) {
-      if (h.balance > 0) addRow('Income', h.name, 0, h.balance);
-      else addRow('Income', h.name, Math.abs(h.balance), 0);
-    }
-    for (const h of fd.headBalances.filter((h) => h.category === 'EXPENSE')) {
-      if (h.balance > 0) addRow('Expenses', h.name, h.balance, 0);
-      else addRow('Expenses', h.name, 0, Math.abs(h.balance));
-    }
-
-    const diff = Math.abs(totalDebit - totalCredit);
-    const data = {
-      asOnDate: fd.asOnDate, rows,
-      totalDebit: parseFloat(totalDebit.toFixed(2)),
-      totalCredit: parseFloat(totalCredit.toFixed(2)),
-      difference: parseFloat(diff.toFixed(2)),
-      isBalanced: diff < 0.01,
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateTrialBalanceExcel(data, user);
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="TrialBalance-${fd.asOnDate}.xlsx"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = trialBalanceData(await getFinancialData(req.user.id, req.query.asOn));
+  const buffer = await generateTrialBalanceExcel(data, await getUser(req.user.id));
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="trialBalance.xlsx"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/balance-sheet/pdf ─────────────────────────
 async function balanceSheetPDF(req, res, next) {
-  try {
-    const { asOn } = req.query;
-    const fd = await getFinancialData(req.user.id, asOn);
-
-    const assets = [
-      { name: 'Cash in Hand', amount: fd.cashBalance },
-      ...fd.bankBalances.map((ba) => ({ name: ba.name, amount: ba.balance })),
-      { name: 'Accounts Receivable (Customers)', amount: fd.totalReceivableDr - fd.totalReceivableCr },
-      { name: 'Inventory (at cost)', amount: fd.inventoryValue },
-    ];
-    const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
-
-    const liabilities = [
-      { name: 'Accounts Payable (Companies)', amount: fd.totalPayableCr - fd.totalPayableDr },
-      ...fd.headBalances.filter((h) => h.category === 'LIABILITY').map((h) => ({ name: h.name, amount: h.balance })),
-    ];
-    const totalLiabilities = liabilities.reduce((s, l) => s + l.amount, 0);
-    const equity = totalAssets - totalLiabilities;
-    const data = {
-      asOnDate: fd.asOnDate,
-      assets, totalAssets: parseFloat(totalAssets.toFixed(2)),
-      liabilities, totalLiabilities: parseFloat(totalLiabilities.toFixed(2)),
-      equity: [{ name: "Owner's Equity (Derived)", amount: equity }],
-      totalEquity: parseFloat(equity.toFixed(2)),
-      totalLiabilitiesAndEquity: parseFloat((totalLiabilities + equity).toFixed(2)),
-      difference: parseFloat(Math.abs(totalAssets - (totalLiabilities + equity)).toFixed(2)),
-      isBalanced: Math.abs(totalAssets - (totalLiabilities + equity)) < 0.01,
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateBalanceSheetPDF(data, user);
-    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="BalanceSheet-${fd.asOnDate}.pdf"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = balanceSheetData(await getFinancialData(req.user.id, req.query.asOn));
+  const buffer = await generateBalanceSheetPDF(data, await getUser(req.user.id));
+  res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="balanceSheet.pdf"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
-// ── GET /api/export/balance-sheet/excel ───────────────────────
 async function balanceSheetExcel(req, res, next) {
-  try {
-    const { asOn } = req.query;
-    const fd = await getFinancialData(req.user.id, asOn);
-
-    const assets = [
-      { name: 'Cash in Hand', amount: fd.cashBalance },
-      ...fd.bankBalances.map((ba) => ({ name: ba.name, amount: ba.balance })),
-      { name: 'Accounts Receivable (Customers)', amount: fd.totalReceivableDr - fd.totalReceivableCr },
-      { name: 'Inventory (at cost)', amount: fd.inventoryValue },
-    ];
-    const totalAssets = assets.reduce((s, a) => s + a.amount, 0);
-
-    const liabilities = [
-      { name: 'Accounts Payable (Companies)', amount: fd.totalPayableCr - fd.totalPayableDr },
-      ...fd.headBalances.filter((h) => h.category === 'LIABILITY').map((h) => ({ name: h.name, amount: h.balance })),
-    ];
-    const totalLiabilities = liabilities.reduce((s, l) => s + l.amount, 0);
-    const equity = totalAssets - totalLiabilities;
-    const data = {
-      asOnDate: fd.asOnDate,
-      assets, totalAssets: parseFloat(totalAssets.toFixed(2)),
-      liabilities, totalLiabilities: parseFloat(totalLiabilities.toFixed(2)),
-      equity: [{ name: "Owner's Equity (Derived)", amount: equity }],
-      totalEquity: parseFloat(equity.toFixed(2)),
-      totalLiabilitiesAndEquity: parseFloat((totalLiabilities + equity).toFixed(2)),
-      difference: parseFloat(Math.abs(totalAssets - (totalLiabilities + equity)).toFixed(2)),
-      isBalanced: Math.abs(totalAssets - (totalLiabilities + equity)) < 0.01,
-    };
-
-    const user = await getUser(req.user.id);
-    const buffer = await generateBalanceSheetExcel(data, user);
-    res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': `attachment; filename="BalanceSheet-${fd.asOnDate}.xlsx"` });
-    res.send(buffer);
-  } catch (err) { next(err); }
+ try {
+  const data = balanceSheetData(await getFinancialData(req.user.id, req.query.asOn));
+  const buffer = await generateBalanceSheetExcel(data, await getUser(req.user.id));
+  res.set({ 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Content-Disposition': 'attachment; filename="balanceSheet.xlsx"' }); res.send(buffer);
+ } catch (error) { next(error); }
 }
 
 module.exports = {

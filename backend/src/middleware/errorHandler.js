@@ -25,7 +25,11 @@ function errorHandler(err, req, res, _next) {
   }
 
   const statusCode = err.statusCode || 500;
-  const message = err.message || 'An unexpected error occurred. Please try again.';
+  const message = statusCode < 500 || process.env.NODE_ENV !== 'production'
+    ? (err.message || 'An unexpected error occurred. Please try again.')
+    : 'An unexpected error occurred. Please try again.';
+
+  if (statusCode >= 500) console.error('[ERROR]', { method: req.method, path: req.path, code: err.code, message: err.message });
 
   if (process.env.NODE_ENV !== 'production') {
     console.error(`[ERROR] ${statusCode} —`, err);
@@ -34,6 +38,7 @@ function errorHandler(err, req, res, _next) {
   res.status(statusCode).json({
     success: false,
     message,
+    ...(statusCode < 500 && err.details && { errors: err.details }),
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
   });
 }

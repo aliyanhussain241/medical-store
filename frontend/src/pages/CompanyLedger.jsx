@@ -46,6 +46,7 @@ export default function CompanyLedger() {
 
   return (
     <div className="space-y-4">
+      {ledger && <p>Opening balance: <strong>{pkr(ledger.openingBalance)}</strong></p>}
       <PageHeader
         title="Company / Distributor Ledger"
         subtitle="Track supplier purchases, payments, payable balances, and statement exports"

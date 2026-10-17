@@ -68,8 +68,8 @@ export const purchasesAPI = {
 export const invoicesAPI = {
   list: (params) => api.get('/invoices', { params }),
   get: (id) => api.get(`/invoices/${id}`),
-  create: (data) => api.post('/invoices', data),
-  update: (id, data) => api.put(`/invoices/${id}`, data),
+  create: (data, key) => api.post('/invoices', data, key ? { headers: { 'Idempotency-Key': key } } : {}),
+  update: (id, data, key) => api.put(`/invoices/${id}`, data, key ? { headers: { 'Idempotency-Key': key } } : {}),
   recordPayment: (id, data) => api.patch(`/invoices/${id}/payment`, data),
   markPrinted: (id) => api.patch(`/invoices/${id}/print`),
 };

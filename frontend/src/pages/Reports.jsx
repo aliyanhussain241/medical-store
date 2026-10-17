@@ -1,3 +1,4 @@
+import { businessDay, businessMonthStart } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/Reports.jsx — Profit & Loss Report with chart
 // ─────────────────────────────────────────────────────────────
@@ -14,8 +15,8 @@ function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK', { day: 
 
 // Default to current month
 const today = new Date();
-const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-const defaultTo = today.toISOString().split('T')[0];
+const defaultFrom = businessMonthStart();
+const defaultTo = businessDay(today);
 
 export default function Reports() {
   const [from, setFrom] = useState(defaultFrom);
@@ -46,6 +47,7 @@ export default function Reports() {
 
   return (
     <div className="space-y-4">
+      {data?.complete === false && <p role="status">Unverified historical gross profit: some legacy invoices lack reliable cost snapshots.</p>}
       <PageHeader
         title="Profit & Loss Report"
         subtitle="Revenue analysis, wholesale cost of goods sold, gross margin percentage, and daily trading profits"

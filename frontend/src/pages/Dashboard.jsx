@@ -147,6 +147,7 @@ function ProfitBar({ label, value, max, color }) {
 function DashSkeleton() {
   return (
     <div className="db-root">
+      {d.complete === false && <p role="status">Unverified historical figures: some cost or opening-balance evidence is missing.</p>}
       <div className="db-welcome">
         <div className="skeleton" style={{ width: 220, height: 20, borderRadius: 6 }} />
         <div className="skeleton" style={{ width: 120, height: 13, borderRadius: 6, marginTop: 6 }} />
@@ -164,13 +165,14 @@ function DashSkeleton() {
 // ── Main Dashboard ────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => dashboardAPI.stats().then((r) => r.data.data),
     refetchInterval: 60_000,
   });
 
   if (isLoading) return <DashSkeleton />;
+  if (isError) return <div role="alert">Dashboard data could not be loaded. <button className="btn btn-outline" onClick={() => refetch()}>Retry</button></div>;
 
   const d = data || {};
   const bankAccounts = d.bankAccounts || [];

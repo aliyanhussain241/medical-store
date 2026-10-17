@@ -1,3 +1,4 @@
+import { businessDay } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/PartyBalanceReport.jsx
 // Party Wise Balance Report grouped by Area/City (Client Reference Layout)
@@ -29,7 +30,7 @@ function fmtDatePK(d) {
 
 export default function PartyBalanceReport() {
   const { user } = useAuth();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDay();
 
   const [asOn, setAsOn] = useState(todayStr);
   const [filter, setFilter] = useState('DR'); // 'DR' | 'CR' | 'ALL'

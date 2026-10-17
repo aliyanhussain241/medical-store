@@ -208,6 +208,8 @@ model PurchaseItem {
 // INVOICES  (selling to customers)
 // ─────────────────────────────────────────────
 model Invoice {
+  initialPaidAmount Decimal? @map("initial_paid_amount") @db.Decimal(15, 2)
+  recordedCost Decimal? @map("recorded_cost") @db.Decimal(15, 2)
   id              String          @id @default(uuid())
   userId          String          @map("user_id")
   customerId      String          @map("customer_id")
@@ -240,6 +242,7 @@ model Invoice {
 }
 
 model InvoiceItem {
+  unitCost Decimal? @map("unit_cost") @db.Decimal(30, 15)
   id          String    @id @default(uuid())
   invoiceId   String    @map("invoice_id")
   productId   String?   @map("product_id")
@@ -299,6 +302,12 @@ enum PartyType {
 }
 
 enum ReferenceType {
+  OPENING_BALANCE_V2
+  PURCHASE_V2
+  SUPPLIER_PAYMENT_V2
+  INVOICE_INITIAL_PAYMENT
+  INVOICE_PAYMENT
+  INVOICE_REVERSAL
   PURCHASE
   INVOICE
   PAYMENT
@@ -311,6 +320,8 @@ enum ReferenceType {
 // CASH BOOK
 // ─────────────────────────────────────────────
 model CashBookEntry {
+  accountCategory String? @map("account_category")
+  accountHeadName String? @map("account_head_name")
   id              String       @id @default(uuid())
   userId          String       @map("user_id")
   transactionDate DateTime     @map("transaction_date") @db.Date
@@ -360,6 +371,7 @@ model DailyProfit {
 // STOCK MOVEMENTS  (audit trail)
 // ─────────────────────────────────────────────
 model StockMovement {
+  valueDelta Decimal? @map("value_delta") @db.Decimal(15, 2)
   id            String          @id @default(uuid())
   userId        String          @map("user_id")
   productId     String          @map("product_id")
@@ -472,6 +484,8 @@ model BankAccount {
 // BANK BOOK  (transactions against bank accounts)
 // ─────────────────────────────────────────────
 model BankBookEntry {
+  accountCategory String? @map("account_category")
+  accountHeadName String? @map("account_head_name")
   id              String       @id @default(uuid())
   userId          String       @map("user_id")
   bankAccountId   String       @map("bank_account_id")
@@ -578,4 +592,30 @@ model AccountHead {
   @@index([userId])
   @@index([userId, category])
   @@map("account_heads")
+}
+
+// Additive posting safety metadata; no existing financial rows are rewritten.
+model AuditEvent {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  entityId String @map("entity_id")
+  action String
+  before String
+  after String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([userId, entityId])
+  @@map("audit_events")
+}
+
+model IdempotencyRecord {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  key String
+  operation String
+  fingerprint String
+  status Int
+  response String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([userId, key])
+  @@map("idempotency_records")
 }

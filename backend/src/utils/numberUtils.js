@@ -7,16 +7,19 @@ const { Decimal } = require('@prisma/client/runtime/library');
 
 /**
  * Calculate line item total:
- *   total = qty * unitPrice * (1 - discount/100)
+ *   gross = round(qty * unitPrice, 2)
+ *   total = gross - round(gross * discount/100, 2), half-up
  * Returns Prisma-compatible Decimal string
  */
-function calcLineTotal(qty, unitPrice, discountPct = 0) {
+function calculateLine(qty, unitPrice, discountPct = 0) {
   const q = new Decimal(qty.toString());
   const p = new Decimal(unitPrice.toString());
   const d = new Decimal(discountPct.toString());
-  const multiplier = new Decimal(1).minus(d.div(100));
-  return q.mul(p).mul(multiplier).toDecimalPlaces(2).toString();
+  const grossTotal = q.mul(p).toDecimalPlaces(2);
+  const discountAmt = grossTotal.mul(d).div(100).toDecimalPlaces(2);
+  return { grossTotal: grossTotal.toFixed(2), discountAmt: discountAmt.toFixed(2), total: grossTotal.minus(discountAmt).toFixed(2) };
 }
+function calcLineTotal(qty, unitPrice, discountPct = 0) { return calculateLine(qty, unitPrice, discountPct).total; }
 
 /**
  * Sum an array of Decimal-compatible values safely
@@ -40,4 +43,4 @@ function formatPKR(value) {
   }).format(num);
 }
 
-module.exports = { calcLineTotal, sumDecimals, formatPKR };
+module.exports = { calculateLine, calcLineTotal, sumDecimals, formatPKR };

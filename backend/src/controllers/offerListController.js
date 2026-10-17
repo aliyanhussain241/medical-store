@@ -2,7 +2,7 @@
 // src/controllers/offerListController.js
 // Offer lists — company discounts, TP, Net rates, bonus schemes
 // ─────────────────────────────────────────────────────────────
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 // ── Helper: Format offer label ────────────────────────────────
 function formatOfferLabel(type, value, buyQty, freeQty) {
@@ -356,3 +356,9 @@ module.exports = {
   remove,
   formatOfferLabel,
 };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

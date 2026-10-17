@@ -27,6 +27,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 const accountHeadRoutes = require('./routes/accountHeadRoutes');
 
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { validateQuery } = require('./utils/input');
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
@@ -58,7 +59,7 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
   exposedHeaders: ['Content-Disposition'],
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -77,66 +78,8 @@ app.get('/health', (_req, res) => {
 });
 
 // Diagnostic endpoint — confirms both direct pg driver and Prisma connection mode
-app.get('/health/diag', async (_req, res) => {
-  const diag = {
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    nodeVersion: process.version,
-    pid: process.pid,
-    env: {
-      NODE_ENV: process.env.NODE_ENV,
-      TOKIO_WORKER_THREADS: process.env.TOKIO_WORKER_THREADS,
-      UV_THREADPOOL_SIZE: process.env.UV_THREADPOOL_SIZE,
-    },
-    pgDirect: null,
-    prisma: null
-  };
-
-  const { prisma, pool } = require('./utils/prismaClient');
-
-  // 1. Direct PG Driver Check (Pure JS)
-  try {
-    const t0 = Date.now();
-    const pgRes = await pool.query('SELECT 1 as ok, NOW() as current_time');
-    diag.pgDirect = {
-      status: 'connected',
-      latencyMs: Date.now() - t0,
-      rows: pgRes.rows
-    };
-  } catch (pgErr) {
-    diag.pgDirect = {
-      status: 'failed',
-      error: pgErr.message,
-      code: pgErr.code,
-      detail: pgErr.detail,
-      hint: pgErr.hint
-    };
-  }
-
-  // 2. Prisma Client Query Check
-  try {
-    const t1 = Date.now();
-    const result = await prisma.$queryRawUnsafe('SELECT 1 as ok');
-    diag.prisma = {
-      status: 'connected',
-      mode: 'pg-driver-adapter',
-      latencyMs: Date.now() - t1,
-      result
-    };
-  } catch (err) {
-    diag.prisma = {
-      status: 'failed',
-      mode: 'pg-driver-adapter',
-      error: err.message,
-      name: err.name,
-      code: err.code
-    };
-  }
-
-  const isOk = diag.pgDirect?.status === 'connected' && diag.prisma?.status === 'connected';
-  res.status(isOk ? 200 : 500).json(diag);
-});
-
+app.get('/health/diag', (_req, res) => res.status(404).json({ success: false, message: 'Not found.' }));
+app.use('/api', validateQuery);
 // ── API routes ────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/companies', companyRoutes);

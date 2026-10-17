@@ -1,8 +1,10 @@
+import { businessDay } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/Purchasing.jsx — Purchase orders from distributors
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react';
 import useDebounce from '../utils/useDebounce';
+import { lineMoney, invoiceMoney } from '../utils/lineMath';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI, productsAPI, purchasesAPI, bankAccountsAPI } from '../api/services';
 import toast from 'react-hot-toast';
@@ -11,10 +13,8 @@ import { useBusinessConfig } from '../context/BusinessConfigContext';
 import { PageHeader, SectionHeader, KpiCard, KpiGrid, PillBadge } from '../components/ui';
 
 function pkr(v) { return `Rs ${parseFloat(v || 0).toLocaleString('en-PK', { minimumFractionDigits: 2 })}`; }
-function calcLine(qty, price, disc) {
-  const q = parseFloat(qty) || 0, p = parseFloat(price) || 0, d = parseFloat(disc) || 0;
-  return q * p * (1 - d / 100);
-}
+function calcLine(qty, price, disc) { return lineMoney(qty, price, disc).total; }
+
 function statusBadge(s) {
   return <PillBadge variant={s}>{s}</PillBadge>;
 }
@@ -24,7 +24,7 @@ export default function Purchasing() {
   const qc = useQueryClient();
   const [tab, setTab] = useState('new'); // 'new' | 'history'
   const [companyId, setCompanyId] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  const [purchaseDate, setPurchaseDate] = useState(businessDay());
   const [items, setItems] = useState([]);
   const [paidAmount, setPaidAmount] = useState('');
   const [productSearch, setProductSearch] = useState('');
@@ -150,7 +150,7 @@ export default function Purchasing() {
 
   function removeItem(idx) { setItems((prev) => prev.filter((_, i) => i !== idx)); }
 
-  const totalAmount = items.reduce((sum, i) => sum + calcLine(i.qty, i.unitPrice, i.discount), 0);
+  const totalAmount = invoiceMoney(items);
   const paid = parseFloat(paidAmount) || 0;
 
   function handleSave() {

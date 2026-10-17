@@ -200,6 +200,8 @@ model PurchaseItem {
 // INVOICES  (selling to customers)
 // ─────────────────────────────────────────────
 model Invoice {
+  initialPaidAmount Decimal? @map("initial_paid_amount")
+  recordedCost Decimal? @map("recorded_cost")
   id              String    @id @default(uuid())
   userId          String    @map("user_id")
   customerId      String    @map("customer_id")
@@ -232,6 +234,7 @@ model Invoice {
 }
 
 model InvoiceItem {
+  unitCost Decimal? @map("unit_cost")
   id          String    @id @default(uuid())
   invoiceId   String    @map("invoice_id")
   productId   String?   @map("product_id")
@@ -287,6 +290,8 @@ model LedgerTransaction {
 // CASH BOOK
 // ─────────────────────────────────────────────
 model CashBookEntry {
+  accountCategory String? @map("account_category")
+  accountHeadName String? @map("account_head_name")
   id              String       @id @default(uuid())
   userId          String       @map("user_id")
   transactionDate DateTime     @map("transaction_date")
@@ -336,6 +341,7 @@ model DailyProfit {
 // STOCK MOVEMENTS
 // ─────────────────────────────────────────────
 model StockMovement {
+  valueDelta Decimal? @map("value_delta")
   id            String    @id @default(uuid())
   userId        String    @map("user_id")
   productId     String    @map("product_id")
@@ -426,6 +432,8 @@ model BankAccount {
 // BANK BOOK
 // ─────────────────────────────────────────────
 model BankBookEntry {
+  accountCategory String? @map("account_category")
+  accountHeadName String? @map("account_head_name")
   id              String       @id @default(uuid())
   userId          String       @map("user_id")
   bankAccountId   String       @map("bank_account_id")
@@ -526,4 +534,30 @@ model AccountHead {
   @@index([userId])
   @@index([userId, category])
   @@map("account_heads")
+}
+
+// Additive posting safety metadata; no existing financial rows are rewritten.
+model AuditEvent {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  entityId String @map("entity_id")
+  action String
+  before String
+  after String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([userId, entityId])
+  @@map("audit_events")
+}
+
+model IdempotencyRecord {
+  id String @id @default(uuid())
+  userId String @map("user_id")
+  key String
+  operation String
+  fingerprint String
+  status Int
+  response String
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([userId, key])
+  @@map("idempotency_records")
 }
