@@ -61,7 +61,7 @@ test('F04/F05/F06: duplicate-line oversell rolls back, keyed retry returns origi
 test('F03: legacy invoices fail closed without inventing cost/payment history', async () => {
   const { db, invoice } = await setup();
   await db.invoice.create({ data: { id: 'old', userId: 'owner', customerId: 'c', invoiceDate: dateOnly(), items: { create: [{ productId: 'p', qty: 1, unitPrice: 10 }] } } });
-  await assert.rejects(invoke(invoice.update, {}, { id: 'old', method: 'PUT' }), /legacy invoice/);
+  await assert.rejects(invoke(invoice.update, {}, { id: 'old', method: 'PUT' }), /lacks reliable payment\/cost snapshots/);
 });
 
 test('F03: Karachi past-day edits remain password-gated; later payments prevent customer reassignment', async () => {

@@ -100,7 +100,7 @@ New branch `codex/audit-batch-1`; focused commits referencing IDs, no push. Reve
 
 ## Open questions / pending access
 
-- Disposable Neon URL pending. Test harness must reject any non-test target; no default DATABASE_URL fallback.
+- Owner created Neon branch `audit-test`; `backend/.env.test` is still missing as of this checkpoint. No database connection is allowed until it exists and its endpoint passes the production-host exclusion check.
 - Accountant confirmation of supplied conventions pending. Existing historical data cannot be silently normalized.
 - Product supplier/generic fields and city/area/town undecided and held.
 - Owner-only, Asia/Karachi, Chrome/Android Chrome, unpacked desktop acceptable. Render authoritative; refresh secret confirmed configured by owner.
@@ -119,8 +119,8 @@ Branch: `codex/audit-batch-1`. Local commits only; no push. No database connecti
 - S01–S06: tenant-scoped references, strict password validation, unique/atomic refresh rotation, verified PostgreSQL TLS and restricted diagnostics/error output.
 - F01–F11/F14–F16/F18: schema-correct dashboard; serialized and conditionally checked stock/payment writes; required idempotency keys; append-only invoice reversals and audit snapshots; later payments retained; Decimal/server and integer/browser rounding agreement; bonus COGS; weighted-average purchases; single-count openings and canonical as-of/filter/page statements; atomic validated imports; session cache clearing/stale-response rejection; current-state keyboard save with pending guard.
 - G01: report/statement JSON and PDF/XLSX use shared data builders, including gross profit. No operating expenses are deducted from gross profit.
-- P01: install/build no longer pushes schema. Explicit database runners require the owner-approved target hash; the allowlist is EMPTY until the disposable URL is supplied. Existing unsafe localhost E2E entry point is disabled.
-- D01: SQLite `VACUUM INTO` snapshot, integrity/foreign-key checks before publishing, then retention. A narrow additive desktop metadata upgrade takes a verified backup before schema changes; it contains no financial DML and has not run. This does not implement the held provider-adapter refactor.
+- P01: install/build no longer pushes schema. Explicit database runners load only `backend/.env.test`, reject the production host (including its pooled variant), reject URL routing overrides, and pass the exact file URL to child processes. Desktop startup performs a read-only schema preflight; packaging no longer creates/mutates the template database. Template creation is a separate explicit command. Existing unsafe localhost E2E entry point is disabled.
+- D01: SQLite `VACUUM INTO` snapshot, integrity/foreign-key checks before publishing, then retention. Automatic desktop migration has been removed. The disposable demo data does not require a precautionary backup; the backup/restore feature test remains required. This does not implement the held provider-adapter refactor.
 
 ### Material behavior and limits
 
@@ -138,7 +138,7 @@ Branch: `codex/audit-batch-1`. Local commits only; no push. No database connecti
 - Database-free regression suite: 27 tests prepared/passing across financial fixtures, ownership, edits/later payments, past-date password gate, weighted average/bonus COGS, rollback/idempotency/import atomicity, refresh rotation, stale-session responses, renderer parity and backup/upgrade control flow.
 - Static checks: backend/desktop source syntax; both Prisma schemas validate using inert local URLs without connecting. Frontend lint exits 0 with 46 remaining warnings; frontend build compiles 31 assets in memory with output writing disabled.
 - Actual PDF/XLSX renderer buffers were generated in memory. Visual browser/PDF layout QA is unverified.
-- Guard probe refuses execution with no TEST_DATABASE_URL. Unit checks reject unapproved targets even if TEST_DATABASE_URL is present.
+- All four live entry points (discrepancy scan, concurrency tests, migration, backup/restore test) refused before connecting because `backend/.env.test` is missing. Unit checks verify production-host/pooler rejection, override rejection and query-routing rejection. Environment variables cannot replace the file as the target source.
 - Neon integration, concurrency/locking behavior, additive SQL application, desktop WAL snapshot/restore and actual existing-data scan remain Unverified pending the owner's disposable URL. Backend generation/build and packaged desktop build have not run.
 
 ### Before/after report-calculation fixture (not a live database)
@@ -156,3 +156,27 @@ Fixture: opening bank 100, customer debit 50, supplier credit 20, opening stock 
 ### Step 7 — read-only discrepancy checkpoint
 
 The scanner starts `BEGIN TRANSACTION READ ONLY`, executes fixed SELECTs, and rolls back. Its fixture test reports customer stored 60 versus computed 110, and bank stored 190 versus computed 90, while leaving those stored values unchanged. No repair is proposed or applied. The actual existing-data discrepancy report cannot be produced until the disposable database URL is provided; production is never a fallback.
+
+### Owner update — disposable demo data and complete schema inventory
+
+No reset is requested or required for the additive changes. No legacy invoice compatibility, invoice reconciliation or backfill will be built. Invoices without snapshots return 409 on edit. The read-only discrepancy report is diagnostic only; it does not propose or execute repairs. Existing demo rows may therefore remain incomplete. The user's statement that backups are unnecessary supersedes the earlier precautionary backup requirement for demo migrations; D01 functionality itself remains approved.
+
+The complete baseline-to-branch Prisma diff was reviewed for BOTH schemas. These are all additions; no columns, tables, relationships, enums or indexes are removed or renamed:
+
+| Model / SQL table | Added fields | PostgreSQL | SQLite | Schema locations |
+|---|---|---|---|---|
+| Invoice / invoices | initialPaidAmount / initial_paid_amount; recordedCost / recorded_cost | nullable DECIMAL(15,2) each | nullable NUMERIC each | backend/prisma/schema.prisma:211; desktop/prisma/schema.prisma:203 |
+| InvoiceItem / invoice_items | unitCost / unit_cost | nullable DECIMAL(30,15) | nullable NUMERIC | backend/prisma/schema.prisma:245; desktop/prisma/schema.prisma:237 |
+| StockMovement / stock_movements | valueDelta / value_delta | nullable DECIMAL(15,2) | nullable NUMERIC | backend/prisma/schema.prisma:368; desktop/prisma/schema.prisma:344 |
+| CashBookEntry / cash_book | accountCategory / account_category; accountHeadName / account_head_name | nullable TEXT each | nullable TEXT each | backend/prisma/schema.prisma:317; desktop/prisma/schema.prisma:293 |
+| BankBookEntry / bank_book | accountCategory / account_category; accountHeadName / account_head_name | nullable TEXT each | nullable TEXT each | backend/prisma/schema.prisma:481; desktop/prisma/schema.prisma:435 |
+| AuditEvent / audit_events | id (PK, Prisma UUID default), userId, entityId, action, before, after, createdAt | six required TEXT fields; required TIMESTAMP(3), default CURRENT_TIMESTAMP | six required TEXT fields; required DATETIME, default CURRENT_TIMESTAMP | backend/prisma/schema.prisma:592; desktop/prisma/schema.prisma:540 |
+| IdempotencyRecord / idempotency_records | id (PK, Prisma UUID default), userId, key, operation, fingerprint, status, response, createdAt | six required TEXT fields; required INTEGER status; required TIMESTAMP(3), default CURRENT_TIMESTAMP | six required TEXT fields; required INTEGER status; required DATETIME, default CURRENT_TIMESTAMP | backend/prisma/schema.prisma:604; desktop/prisma/schema.prisma:552 |
+
+New indexes: `audit_events_user_id_entity_id_idx` (user_id, entity_id); unique `idempotency_records_user_id_key_key` (user_id, key). UUID defaults are generated by Prisma, not SQL server defaults. New metadata tables use scalar tenant IDs without new foreign-key relations.
+
+Complete executable migration SQL is retained in `backend/prisma/posting-safety.sql:1` (PostgreSQL) and `desktop/prisma/posting-safety.sql:1` (SQLite). Both contain only transaction control, eight ADD COLUMN statements, two CREATE TABLE statements and two CREATE INDEX statements. Nothing is dropped and no historical data is changed. PostgreSQL additions are idempotent; SQLite migration targets the original schema and must run once, explicitly, offline. Neither build nor application startup applies these scripts.
+
+Latest validation: 27 database-free tests pass. The discrepancy, concurrency, migration and desktop backup/restore entry points all refuse execution while `backend/.env.test` is absent. Therefore live before/after figures for Trial Balance, Balance Sheet, customer/supplier ledgers, bank book and Dashboard are **Unverified**; the earlier table remains an in-memory report-calculation fixture only. Dashboard is explicitly included in the pending live comparison. The discrepancy scan must be shown before any repair proposal; concurrency testing may require the explicit additive migration first if the test branch has the old schema. No database was contacted, reset or repaired.
+
+N01 detail: access-token verification checks signature and expiry only (`backend/src/middleware/authMiddleware.js:22`). Logout deletes refresh tokens (`backend/src/controllers/authController.js:161`); password change does likewise (`backend/src/controllers/authController.js:222`). Existing access tokens therefore remain usable until expiry: web fallback 15 minutes (`backend/src/controllers/authController.js:25`), configured web duration not inspected, desktop 24 hours (`desktop/main.js:28`). Immediate access-token revocation remains held and unchanged.

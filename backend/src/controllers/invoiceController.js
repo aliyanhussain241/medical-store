@@ -193,7 +193,7 @@ async function update(req, res, next) {
       if (typeof b.adminPassword !== 'string' || !(await bcrypt.compare(b.adminPassword, owner.passwordHash))) throw Object.assign(new Error('Store owner password is required to edit past-dated invoices.'), { statusCode: 401 });
     }
     if (original.initialPaidAmount === null || original.initialPaidAmount === undefined || original.recordedCost === null || original.recordedCost === undefined || original.items.some((i) => i.unitCost === null || i.unitCost === undefined)) {
-      throw Object.assign(new Error('This legacy invoice lacks reliable payment/cost snapshots. Editing requires a separately reviewed migration; no records were changed.'), { statusCode: 409 });
+      throw Object.assign(new Error('This invoice lacks reliable payment/cost snapshots and cannot be edited. No records were changed.'), { statusCode: 409 });
     }
     const later = D(original.paidAmount).minus(original.initialPaidAmount);
     const customerId = b.customerId || original.customerId;
