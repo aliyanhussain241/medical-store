@@ -3,7 +3,7 @@
 // Suppliers / Distributors CRUD (scoped strictly to req.user.id)
 // ─────────────────────────────────────────────────────────────
 const { validationResult } = require('express-validator');
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 // ── GET /api/companies ────────────────────────────────────────
 async function list(req, res, next) {
@@ -93,13 +93,13 @@ async function create(req, res, next) {
           userId: req.user.id,
           partyType: 'COMPANY',
           partyId: company.id,
-          transactionDate: new Date(),
+          transactionDate: require('../utils/businessDate').dateOnly(),
           description: 'Opening Balance',
-          referenceType: 'OPENING_BALANCE',
+          referenceType: 'OPENING_BALANCE_V2',
           referenceId: company.id,
-          debit: parseFloat(openingBalance) > 0 ? Math.abs(parseFloat(openingBalance)) : 0,
-          credit: parseFloat(openingBalance) < 0 ? Math.abs(parseFloat(openingBalance)) : 0,
-          runningBalance: parseFloat(openingBalance),
+          debit: parseFloat(openingBalance) < 0 ? Math.abs(parseFloat(openingBalance)) : 0,
+          credit: parseFloat(openingBalance) > 0 ? Math.abs(parseFloat(openingBalance)) : 0,
+          runningBalance: -parseFloat(openingBalance),
         },
       });
     }
@@ -162,3 +162,9 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, getOne, create, update, remove };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

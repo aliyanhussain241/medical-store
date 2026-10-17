@@ -3,7 +3,7 @@
 // Product/Inventory CRUD + low-stock + expiry alerts
 // ─────────────────────────────────────────────────────────────
 const { validationResult } = require('express-validator');
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 // ── GET /api/products ─────────────────────────────────────────
 async function list(req, res, next) {
@@ -177,12 +177,13 @@ async function create(req, res, next) {
         tradePrice: tradePrice !== undefined && tradePrice !== '' ? tradePrice : purchasePrice,
         salePrice,
         stockQty: stockQty || 0,
-        minStockAlert: minStockAlert || 10,
+        minStockAlert: minStockAlert ?? 10,
         piecesPerPack: piecesPerPack ? parseInt(piecesPerPack) : 1,
         packing: packing || null,
       },
     });
 
+    await prisma.stockMovement.create({ data: { userId: req.user.id, productId: product.id, movementType: 'ADJUSTMENT', qty: String(product.stockQty), valueDelta: require('../services/statementService').D(product.stockQty).mul(product.purchasePrice).toFixed(2), movementDate: require('../utils/businessDate').dateOnly(), notes: 'INITIAL_INVENTORY' } });
     res.status(201).json({ success: true, message: 'Product added successfully.', data: product });
   } catch (err) {
     next(err);
@@ -217,6 +218,8 @@ async function update(req, res, next) {
       },
     });
 
+    const delta = require('../services/statementService').D(product.purchasePrice).minus(existing.purchasePrice).mul(existing.stockQty);
+    if (!delta.isZero()) await prisma.stockMovement.create({ data: { userId: req.user.id, productId: product.id, movementType: 'ADJUSTMENT', qty: 0, valueDelta: delta.toFixed(2), movementDate: require('../utils/businessDate').dateOnly(), notes: 'COST_REVALUATION' } });
     res.json({ success: true, message: 'Product updated.', data: product });
   } catch (err) {
     next(err);
@@ -234,24 +237,15 @@ async function adjustStock(req, res, next) {
     const existing = await prisma.product.findFirst({ where: { id: req.params.id, userId: req.user.id } });
     if (!existing) return res.status(404).json({ success: false, message: 'Product not found.' });
 
-    const newQty = parseFloat(existing.stockQty) + parseFloat(qty);
+    const newQty = require('../services/statementService').D(existing.stockQty).plus(qty).toNumber();
     if (newQty < 0) {
       return res.status(400).json({ success: false, message: 'Stock cannot go below zero.' });
     }
 
-    const [product] = await prisma.$transaction([
-      prisma.product.update({ where: { id: req.params.id }, data: { stockQty: newQty } }),
-      prisma.stockMovement.create({
-        data: {
-          userId: req.user.id,
-          productId: req.params.id,
-          movementType: 'ADJUSTMENT',
-          qty: parseFloat(qty),
-          movementDate: new Date(),
-          notes,
-        },
-      }),
-    ]);
+    const changed = await prisma.product.updateMany({ where: { id: req.params.id, userId: req.user.id, ...(Number(qty) < 0 && { stockQty: { gte: String(-Number(qty)) } }) }, data: { stockQty: { increment: String(qty) } } });
+    if (changed.count !== 1) throw Object.assign(new Error('Stock changed. Reload and retry.'), { statusCode: 409 });
+    await prisma.stockMovement.create({ data: { userId: req.user.id, productId: req.params.id, movementType: 'ADJUSTMENT', qty: String(qty), valueDelta: require('../services/statementService').D(qty).mul(existing.purchasePrice).toFixed(2), movementDate: require('../utils/businessDate').dateOnly(), notes } });
+    const product = await prisma.product.findFirst({ where: { id: req.params.id, userId: req.user.id } });
 
     res.json({ success: true, message: 'Stock adjusted.', data: product });
   } catch (err) {
@@ -282,3 +276,9 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, getOne, categories, alerts, create, update, adjustStock, remove };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

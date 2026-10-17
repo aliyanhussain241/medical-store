@@ -10,7 +10,7 @@
 //   3. Any reasonable variation (case-insensitive header matching)
 // ─────────────────────────────────────────────────────────────
 const ExcelJS = require('exceljs');
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 // ── Template column definitions ───────────────────────────────
 const TEMPLATE_COLUMNS = [
@@ -206,7 +206,7 @@ async function importProducts(req, res, next) {
     }
 
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(req.file.buffer);
+    try { await workbook.xlsx.load(req.file.buffer); } catch { return res.status(400).json({ success: false, message: 'Invalid XLSX workbook. No rows were added.' }); }
 
     // Try to find the data worksheet — prefer "Products" tab, else first sheet
     const sheet = workbook.getWorksheet('Products')
@@ -254,6 +254,7 @@ async function importProducts(req, res, next) {
     // ── Parse rows ────────────────────────────────────────────
     const results = { added: 0, skipped: 0, errors: [] };
     const toCreate = [];
+    const { number } = require('../utils/input');
 
     sheet.eachRow((row, rowNumber) => {
       if (rowNumber <= headerRowNum) return; // skip headers
@@ -320,18 +321,13 @@ async function importProducts(req, res, next) {
       // It's more useful to keep the original pack size than force a category
       const unitValue = rawUnit || 'strip';
 
-      toCreate.push({
-        userId:        req.user.id,
-        productName,
-        category:      category || null,
-        unit:          unitValue,
-        batchNo:       batchNo || null,
-        expiryDate,
-        purchasePrice: effectivePurchasePrice.toString(),
-        salePrice:     effectiveSalePrice.toString(),
-        stockQty:      stockQtyRaw ? stockQtyRaw.toString() : '0',
-        minStockAlert: minAlertRaw ? parseInt(minAlertRaw) || 10 : 10,
-      });
+      try {
+        if (!purchasePriceRaw) throw new Error('Purchase cost is required; an unknown cost cannot be inferred from MRP.');
+        toCreate.push({ userId: req.user.id, productName, category: category || null, unit: unitValue, batchNo: batchNo || null, expiryDate,
+          purchasePrice: number(purchasePriceRaw, 'purchase price').toFixed(2), salePrice: number(effectiveSalePrice, 'sale price', { min: '0.01' }).toFixed(2),
+          stockQty: number(stockQtyRaw, 'stock quantity', { optional: true, scale: 3 }).toString(), minStockAlert: number(minAlertRaw || 10, 'minimum stock', { scale: 0 }).toNumber() });
+      } catch (error) { results.errors.push({ row: rowNumber, product: productName, message: error.message }); results.skipped++; }
+
     });
 
     if (toCreate.length === 0) {
@@ -342,13 +338,17 @@ async function importProducts(req, res, next) {
       });
     }
 
-    // Bulk insert in batches of 100
-    const BATCH = 100;
-    for (let i = 0; i < toCreate.length; i += BATCH) {
-      await prisma.product.createMany({
-        data: toCreate.slice(i, i + BATCH),
-        skipDuplicates: false,
-      });
+    if (results.errors.length) return res.status(400).json({ success: false, message: 'Import rejected. No rows were added.', errors: results.errors });
+    const existing = await prisma.product.findMany({ where: { userId: req.user.id }, select: { productName: true, batchNo: true } });
+    const key = (row) => JSON.stringify([row.productName.trim().toLowerCase(), (row.batchNo || '').trim().toLowerCase()]);
+    const seen = new Set(existing.map(key));
+    for (const row of toCreate) {
+      if (seen.has(key(row))) return res.status(400).json({ success: false, message: 'Duplicate product/batch in file or catalog: ' + row.productName + '. No rows were added.' });
+      seen.add(key(row));
+    }
+    for (const row of toCreate) {
+      const product = await prisma.product.create({ data: row });
+      await prisma.stockMovement.create({ data: { userId: req.user.id, productId: product.id, movementType: 'ADJUSTMENT', qty: row.stockQty, valueDelta: require('../services/statementService').D(row.stockQty).mul(row.purchasePrice).toFixed(2), movementDate: require('../utils/businessDate').dateOnly(), notes: 'INITIAL_INVENTORY' } });
     }
 
     results.added = toCreate.length;
@@ -366,4 +366,4 @@ async function importProducts(req, res, next) {
   }
 }
 
-module.exports = { downloadTemplate, importProducts };
+module.exports = { downloadTemplate, importProducts: require('../utils/transactionalController').transactionalController(importProducts) };

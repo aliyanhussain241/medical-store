@@ -4,7 +4,7 @@
 // Includes customerCode, area territory, and ledger initialization
 // ─────────────────────────────────────────────────────────────
 const { validationResult } = require('express-validator');
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 // ── Helper: auto-generate next customer code ──────────────────
 async function getNextCustomerCode(userId) {
@@ -140,7 +140,7 @@ async function create(req, res, next) {
           userId: req.user.id,
           partyType: 'CUSTOMER',
           partyId: customer.id,
-          transactionDate: new Date(),
+          transactionDate: require('../utils/businessDate').dateOnly(),
           description: 'Opening Balance',
           referenceType: 'OPENING_BALANCE',
           referenceId: customer.id,
@@ -210,3 +210,9 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, getAreas, getOne, create, update, remove, getNextCustomerCode };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

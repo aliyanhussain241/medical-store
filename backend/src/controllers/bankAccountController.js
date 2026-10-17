@@ -4,7 +4,7 @@
 // Mirrors companyController pattern with opening balance ledger
 // ─────────────────────────────────────────────────────────────
 const { validationResult } = require('express-validator');
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 // ── GET /api/bank-accounts ────────────────────────────────────
 async function list(req, res, next) {
@@ -90,7 +90,7 @@ async function create(req, res, next) {
         data: {
           userId: req.user.id,
           bankAccountId: account.id,
-          transactionDate: new Date(),
+          transactionDate: require('../utils/businessDate').dateOnly(),
           description: 'Opening Balance',
           debit: ob > 0 ? Math.abs(ob) : 0,
           credit: ob < 0 ? Math.abs(ob) : 0,
@@ -152,3 +152,9 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, getOne, create, update, remove };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

@@ -2,7 +2,7 @@
 // src/controllers/accountHeadController.js
 // Chart of Accounts — manage account heads (Expense/Income/Liability)
 // ─────────────────────────────────────────────────────────────
-const prisma = require('../utils/prismaClient');
+const prisma = require('../utils/db');
 
 const VALID_CATEGORIES = ['INCOME', 'EXPENSE', 'LIABILITY'];
 
@@ -133,3 +133,9 @@ async function remove(req, res, next) {
 }
 
 module.exports = { list, create, update, remove };
+
+// F04/F05/F06: lock before reads and buffer responses until commit.
+const { transactionalController } = require("../utils/transactionalController");
+for (const name of ["create", "update", "remove", "recordPayment", "adjustStock", "paySalary", "toggleActive"]) {
+  if (module.exports[name]) module.exports[name] = transactionalController(module.exports[name]);
+}

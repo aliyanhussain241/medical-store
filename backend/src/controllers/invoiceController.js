@@ -1,31 +1,18 @@
-// ─────────────────────────────────────────────────────────────
-// src/controllers/invoiceController.js
-// Sales Invoice pipeline:
-//   - Decrease stock
-//   - Customer ledger debit (they owe us)
-//   - Cash book credit (cash received)
-//   - Daily profit update
-// All inside a Prisma $transaction
-// ─────────────────────────────────────────────────────────────
-const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
-const prisma = require('../utils/prismaClient');
-const { calcLineTotal } = require('../utils/numberUtils');
-const { getNextEntryNo } = require('./cashBookController');
+const prisma = require('../utils/db');
+const { D } = require('../services/statementService');
+const { postParty, postMoney, invoiceLines, invoiceTotals, moveInvoiceStock, profit } = require('../services/postingService');
+const { businessDay, dateOnly } = require('../utils/businessDate');
+const { bad, number, enumeration } = require('../utils/input');
+const { owned } = require('../utils/validatePosting');
+const { transactionalController } = require('../utils/transactionalController');
 
-// ── Sequential invoice number per user ────────────────────────
 async function nextInvoiceNo(userId) {
-  const last = await prisma.invoice.findFirst({
-    where: { userId },
-    orderBy: { createdAt: 'desc' },
-    select: { invoiceNo: true },
-  });
-  if (!last) return 'INV-00001';
-  const num = parseInt(last.invoiceNo.replace('INV-', ''), 10) + 1;
-  return `INV-${String(num).padStart(5, '0')}`;
+  const rows = await prisma.invoice.findMany({ where: { userId }, select: { invoiceNo: true } });
+  const max = rows.reduce((n, row) => Math.max(n, Number(/^INV-(\d+)$/.exec(row.invoiceNo)?.[1] || 0)), 0);
+  return 'INV-' + String(max + 1).padStart(5, '0');
 }
 
-// ── GET /api/invoices ─────────────────────────────────────────
 async function list(req, res, next) {
   try {
     const { search, customerId, status, from, to, page = 1, limit = 50 } = req.query;
@@ -114,781 +101,124 @@ async function markPrinted(req, res, next) {
   }
 }
 
-// ── POST /api/invoices ────────────────────────────────────────
+
+function status(total, paid) { return paid.gte(total) ? 'PAID' : paid.isZero() ? 'PENDING' : 'PARTIAL'; }
+async function checkedBank(userId, method, id) { if (method === 'BANK') await owned('bankAccount', id, userId, 'Bank account'); }
+async function load(userId, id) {
+  const invoice = await prisma.invoice.findFirst({ where: { id, userId }, include: { customer: true, items: { include: { product: true } } } });
+  if (!invoice) throw Object.assign(new Error('Invoice not found.'), { statusCode: 404 });
+  return invoice;
+}
+
+async function initialEffects(invoice, lines, cost) {
+  const { userId, id, customerId, invoiceDate, invoiceNo, paymentMethod, bankAccountId } = invoice;
+  await moveInvoiceStock(userId, id, invoiceDate, lines);
+  await postParty(userId, 'CUSTOMER', customerId, invoiceDate, 'Invoice — ' + invoiceNo, invoice.totalAmount, 0, 'INVOICE', id);
+  const paid = D(invoice.initialPaidAmount);
+  if (paid.gt(0)) {
+    await postParty(userId, 'CUSTOMER', customerId, invoiceDate, 'Initial payment — ' + invoiceNo, 0, paid, 'INVOICE_INITIAL_PAYMENT', id);
+    await postMoney({ userId, method: paymentMethod, bankAccountId, date: invoiceDate, amount: paid, description: 'Initial receipt — ' + invoiceNo, referenceType: 'INVOICE_INITIAL', referenceId: id });
+  }
+  await profit(userId, invoiceDate, invoice.totalAmount, cost);
+}
+
 async function create(req, res, next) {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ success: false, errors: errors.array() });
-
-    const { customerId, invoiceDate, items, paidAmount, notes, salesman, paymentMethod, bankAccountId, narration, invoiceType } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({ success: false, message: 'At least one item is required.' });
-    }
-
-    const method = (paymentMethod || 'CASH').toUpperCase();
-
-    // If BANK, validate bank account
-    let bankAccount = null;
-    if (method === 'BANK') {
-      if (!bankAccountId) {
-        return res.status(400).json({ success: false, message: 'Bank account is required when payment method is Bank.' });
-      }
-      bankAccount = await prisma.bankAccount.findFirst({ where: { id: bankAccountId, userId: req.user.id } });
-      if (!bankAccount) {
-        return res.status(404).json({ success: false, message: 'Bank account not found.' });
-      }
-    }
-
-    // Fetch products (only for catalog items)
-    const productIds = items.map((i) => i.productId).filter(Boolean);
-    const uniqueIds = [...new Set(productIds)];
-    const products = uniqueIds.length > 0 ? await prisma.product.findMany({
-      where: { id: { in: uniqueIds }, userId: req.user.id },
-    }) : [];
-    if (products.length !== uniqueIds.length) {
-      return res.status(400).json({ success: false, message: 'One or more products not found in catalog.' });
-    }
-
-    // Stock check accounting for regular qty + scheme units + free pcs (catalog items only)
-    for (const item of items) {
-      if (!item.productId) continue; // Manual / miscellaneous item skips inventory check
-      const product = products.find((p) => p.id === item.productId);
-      const schemeUnits = parseFloat(item.schemeUnits || 0);
-      const freePcs = parseFloat(item.freePcs || 0);
-      const totalUnitsDeducted = parseFloat(item.qty || 0) + schemeUnits + freePcs;
-      if (parseFloat(product.stockQty) < totalUnitsDeducted) {
-        return res.status(400).json({
-          success: false,
-          message: `Insufficient stock for "${product.productName}". Available: ${product.stockQty} ${product.unit}, required: ${totalUnitsDeducted}.`,
-        });
-      }
-    }
-
-    // Calculate line totals and reference table fields
-    const lineItems = items.map((item) => {
-      const product = item.productId ? products.find((p) => p.id === item.productId) : null;
-      const qty = parseFloat(item.qty) || 0;
-      const unitPrice = parseFloat(item.unitPrice) || 0;
-      const discount = parseFloat(item.discount || 0);
-      const grossTotal = parseFloat((qty * unitPrice).toFixed(2));
-      const discountAmt = parseFloat((grossTotal * (discount / 100)).toFixed(2));
-      const lineNet = parseFloat((grossTotal - discountAmt).toFixed(2));
-      const schemeUnits = parseFloat(item.schemeUnits || 0);
-      const schemeTotal = parseFloat(item.schemeTotal || 0);
-      const freePcs = parseFloat(item.freePcs || 0);
-      const costTotal = product ? parseFloat((qty * parseFloat(product.purchasePrice)).toFixed(2)) : 0;
-
-      return {
-        ...item,
-        productId: item.productId || null,
-        customName: item.customName || (!item.productId ? (item.productName || 'Manual Item') : null),
-        qty,
-        unitPrice,
-        pricingMode: item.pricingMode || 'RETAIL',
-        batchNo: item.batchNo || product?.batchNo || null,
-        packing: item.packing || product?.unit || null,
-        discount,
-        discountAmt,
-        schemeUnits,
-        schemeTotal,
-        freePcs,
-        grossTotal,
-        total: lineNet,
-        costTotal,
-      };
-    });
-
-    const totalAmount = lineItems.reduce((s, i) => s + parseFloat(i.total), 0).toFixed(2);
-    const totalCost = lineItems.reduce((s, i) => s + parseFloat(i.costTotal), 0).toFixed(2);
-    const totalProfit = (parseFloat(totalAmount) - parseFloat(totalCost)).toFixed(2);
-    const paid = parseFloat(paidAmount || 0);
-    const balance = (parseFloat(totalAmount) - paid).toFixed(2);
-    const paymentStatus = paid <= 0 ? 'PENDING' : paid >= parseFloat(totalAmount) ? 'PAID' : 'PARTIAL';
-
-    const invoiceNo = await nextInvoiceNo(req.user.id);
-
-    const customer = await prisma.customer.findFirst({ where: { id: customerId, userId: req.user.id } });
-    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found.' });
-
-    // Get cash book running balance (only needed for CASH method)
-    let cashRunning = 0;
-    if (method === 'CASH') {
-      const lastCashEntry = await prisma.cashBookEntry.findFirst({ where: { userId: req.user.id }, orderBy: { createdAt: 'desc' } });
-      cashRunning = parseFloat(lastCashEntry?.runningBalance || 0);
-    }
-
-    // Get bank running balance (only needed for BANK method)
-    let bankRunning = 0;
-    if (method === 'BANK' && bankAccount) {
-      const lastBankEntry = await prisma.bankBookEntry.findFirst({
-        where: { userId: req.user.id, bankAccountId },
-        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-      });
-      bankRunning = parseFloat(lastBankEntry?.runningBalance ?? bankAccount.openingBalance);
-    }
-
-    const lastLedger = await prisma.ledgerTransaction.findFirst({
-      where: { userId: req.user.id, partyType: 'CUSTOMER', partyId: customerId },
-      orderBy: { createdAt: 'desc' },
-    });
-    const prvBalance = parseFloat(lastLedger?.runningBalance ?? customer.openingBalance);
-    const ledgerRunning = prvBalance;
-
-    const txDate = invoiceDate ? new Date(invoiceDate) : new Date();
-    const reportDate = new Date(txDate.toDateString()); // midnight
-
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Create invoice with full reference fields
-      const invoice = await tx.invoice.create({
-        data: {
-          userId: req.user.id,
-          customerId,
-          invoiceNo,
-          invoiceDate: txDate,
-          totalAmount,
-          paidAmount: paid,
-          balanceAmount: balance,
-          paymentStatus,
-          paymentMethod: method,
-          bankAccountId: method === 'BANK' ? bankAccountId : null,
-          invoiceType: (invoiceType || 'CREDIT').toUpperCase(),
-          narration: narration || null,
-          salesman: salesman || null,
-          printCount: 0,
-          prvBalance,
-          notes,
-          items: {
-            create: lineItems.map((i) => ({
-              productId: i.productId || null,
-              customName: i.customName || null,
-              qty: i.qty,
-              unitPrice: i.unitPrice,
-              pricingMode: i.pricingMode,
-              batchNo: i.batchNo,
-              packing: i.packing,
-              discount: i.discount,
-              discountAmt: i.discountAmt,
-              schemeUnits: i.schemeUnits,
-              schemeTotal: i.schemeTotal,
-              freePcs: i.freePcs,
-              grossTotal: i.grossTotal,
-              total: i.total,
-            })),
-          },
-        },
-        include: { customer: true, items: { include: { product: true } } },
-      });
-
-      // 2. Decrease stock + stock movement per item (only for catalog products)
-      for (const item of lineItems) {
-        if (!item.productId) continue; // manual item skips inventory deduction
-        const totalDeducted = parseFloat(item.qty) + parseFloat(item.schemeUnits || 0) + parseFloat(item.freePcs || 0);
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stockQty: { decrement: totalDeducted } },
-        });
-        await tx.stockMovement.create({
-          data: {
-            userId: req.user.id,
-            productId: item.productId,
-            movementType: 'SALE',
-            qty: -totalDeducted,
-            referenceId: invoice.id,
-            movementDate: txDate,
-          },
-        });
-      }
-
-      // 3. Update customer balance (add outstanding)
-      await tx.customer.update({
-        where: { id: customerId },
-        data: { currentBalance: { increment: parseFloat(balance) } },
-      });
-
-      // 4. Customer ledger: debit for full sale amount
-      await tx.ledgerTransaction.create({
-        data: {
-          userId: req.user.id,
-          partyType: 'CUSTOMER',
-          partyId: customerId,
-          transactionDate: txDate,
-          description: `Invoice — ${invoiceNo}`,
-          referenceType: 'INVOICE',
-          referenceId: invoice.id,
-          debit: parseFloat(totalAmount),
-          credit: 0,
-          runningBalance: ledgerRunning + parseFloat(totalAmount),
-        },
-      });
-
-      // 5. If payment received — route to CASH or BANK
-      if (paid > 0) {
-        if (method === 'BANK') {
-          // ── BANK payment: create BankBookEntry (debit = money INTO bank)
-          const newBankBalance = bankRunning + paid;
-          await tx.bankBookEntry.create({
-            data: {
-              userId: req.user.id,
-              bankAccountId,
-              transactionDate: txDate,
-              description: `Received from sale invoice# ${invoiceNo}`,
-              debit: paid,
-              credit: 0,
-              runningBalance: newBankBalance,
-              referenceType: 'INVOICE',
-              referenceId: invoice.id,
-              narration: narration || null,
-              partyName: customer.customerName.toUpperCase(),
-            },
-          });
-
-          // Update bank account balance
-          await tx.bankAccount.update({
-            where: { id: bankAccountId },
-            data: { currentBalance: newBankBalance },
-          });
-        } else {
-          // ── CASH payment: create CashBookEntry (as before)
-          const mcrNo = await getNextEntryNo(req.user.id, 'MCR');
-          await tx.cashBookEntry.create({
-            data: {
-              userId: req.user.id,
-              transactionDate: txDate,
-              description: `MCR# ${mcrNo}, Cash received from sale invoice# ${invoiceNo}`,
-              cashIn: paid,
-              cashOut: 0,
-              runningBalance: cashRunning + paid,
-              referenceType: 'INVOICE',
-              referenceId: invoice.id,
-              entryType: 'MCR',
-              entryNo: mcrNo,
-              partyName: customer.customerName.toUpperCase(),
-            },
-          });
-        }
-
-        // Ledger credit for payment (regardless of method)
-        await tx.ledgerTransaction.create({
-          data: {
-            userId: req.user.id,
-            partyType: 'CUSTOMER',
-            partyId: customerId,
-            transactionDate: txDate,
-            description: `Payment (${method}) — ${invoiceNo}`,
-            referenceType: 'PAYMENT',
-            referenceId: invoice.id,
-            debit: 0,
-            credit: paid,
-            runningBalance: ledgerRunning + parseFloat(totalAmount) - paid,
-          },
-        });
-      }
-
-      // 6. Upsert daily profit record
-      await tx.dailyProfit.upsert({
-        where: { userId_reportDate: { userId: req.user.id, reportDate } },
-        create: {
-          userId: req.user.id,
-          reportDate,
-          totalSales: parseFloat(totalAmount),
-          totalCost: parseFloat(totalCost),
-          totalProfit: parseFloat(totalProfit),
-        },
-        update: {
-          totalSales: { increment: parseFloat(totalAmount) },
-          totalCost: { increment: parseFloat(totalCost) },
-          totalProfit: { increment: parseFloat(totalProfit) },
-        },
-      });
-
-      return invoice;
-    }, { maxWait: 15000, timeout: 30000 });
-
-    const full = await prisma.invoice.findUnique({
-      where: { id: result.id },
-      include: { customer: true, items: { include: { product: true } } },
-    });
-
-    res.status(201).json({ success: true, message: `Invoice ${invoiceNo} created successfully.`, data: full });
-  } catch (err) {
-    next(err);
-  }
+    const b = req.body, userId = req.user.id;
+    await owned('customer', b.customerId, userId, 'Customer');
+    if (!Array.isArray(b.items) || !b.items.length) bad('At least one item is required.');
+    const method = enumeration(b.paymentMethod, ['CASH', 'BANK'], 'payment method', 'CASH');
+    const type = enumeration(b.invoiceType, ['CASH', 'CREDIT'], 'invoice type', 'CREDIT');
+    await require('../services/postingService').requireAppendableStockDate(userId, b.items.map((i) => i.productId).filter(Boolean), b.invoiceDate);
+    const lines = await invoiceLines(userId, b.items), { total, cost } = invoiceTotals(lines);
+    const paid = number(b.paidAmount, 'paid amount', { optional: true });
+    if (paid.gt(total)) bad('Payment exceeds invoice total.');
+    if (type === 'CASH' && !paid.eq(total)) bad('Cash invoices must be paid in full.');
+    if (method === 'BANK' && paid.gt(0)) await checkedBank(userId, method, b.bankAccountId);
+    const invoice = await prisma.invoice.create({ data: {
+      userId, customerId: b.customerId, invoiceNo: await nextInvoiceNo(userId), invoiceDate: dateOnly(b.invoiceDate), totalAmount: total.toFixed(2), recordedCost: cost.toFixed(2), paidAmount: paid.toFixed(2), initialPaidAmount: paid.toFixed(2), balanceAmount: total.minus(paid).toFixed(2), paymentStatus: status(total, paid), paymentMethod: method, bankAccountId: method === 'BANK' && paid.gt(0) ? b.bankAccountId : null, invoiceType: type, narration: b.narration || null, salesman: b.salesman || null, notes: b.notes || null,
+      prvBalance: (await require('../services/statementService').partyStatement(prisma, userId, 'CUSTOMER', b.customerId, { to: businessDay(b.invoiceDate) })).summary.closingBalance,
+      items: { create: lines },
+    } });
+    await initialEffects(invoice, lines, cost);
+    await prisma.customer.updateMany({ where: { id: b.customerId, userId }, data: { currentBalance: { increment: total.minus(paid).toFixed(2) } } });
+    const full = await load(userId, invoice.id);
+    await prisma.auditEvent.create({ data: { userId, entityId: invoice.id, action: 'INVOICE_CREATE', before: 'null', after: JSON.stringify(full) } });
+    res.status(201).json({ success: true, message: 'Invoice ' + invoice.invoiceNo + ' created successfully.', data: full });
+  } catch (error) { next(error); }
 }
 
-// ── PATCH /api/invoices/:id/payment ──────────────────────────
 async function recordPayment(req, res, next) {
   try {
-    const { amount, paymentDate, paymentMethod, bankAccountId } = req.body;
-    if (!amount || parseFloat(amount) <= 0) {
-      return res.status(400).json({ success: false, message: 'Payment amount must be greater than 0.' });
-    }
-
-    const method = (paymentMethod || 'CASH').toUpperCase();
-
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-      include: { customer: true },
-    });
-    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found.' });
-    if (invoice.paymentStatus === 'PAID') {
-      return res.status(400).json({ success: false, message: 'This invoice is already fully paid.' });
-    }
-
-    // If BANK, validate bank account
-    let bankAccount = null;
-    if (method === 'BANK') {
-      if (!bankAccountId) {
-        return res.status(400).json({ success: false, message: 'Bank account is required when payment method is Bank.' });
-      }
-      bankAccount = await prisma.bankAccount.findFirst({ where: { id: bankAccountId, userId: req.user.id } });
-      if (!bankAccount) {
-        return res.status(404).json({ success: false, message: 'Bank account not found.' });
-      }
-    }
-
-    const payAmt = parseFloat(amount);
-    const remaining = parseFloat(invoice.balanceAmount);
-    if (payAmt > remaining) {
-      return res.status(400).json({ success: false, message: `Payment exceeds balance due of ${remaining}.` });
-    }
-
-    const newPaid = parseFloat(invoice.paidAmount) + payAmt;
-    const newBalance = remaining - payAmt;
-    const newStatus = newBalance <= 0 ? 'PAID' : 'PARTIAL';
-    const txDate = paymentDate ? new Date(paymentDate) : new Date();
-
-    const lastLedger = await prisma.ledgerTransaction.findFirst({
-      where: { userId: req.user.id, partyType: 'CUSTOMER', partyId: invoice.customerId },
-      orderBy: { createdAt: 'desc' },
-    });
-    const ledgerRunning = parseFloat(lastLedger?.runningBalance || 0);
-
-    const txOps = [
-      prisma.invoice.update({
-        where: { id: req.params.id },
-        data: { paidAmount: newPaid, balanceAmount: newBalance, paymentStatus: newStatus },
-      }),
-      prisma.customer.update({
-        where: { id: invoice.customerId },
-        data: { currentBalance: { decrement: payAmt } },
-      }),
-      prisma.ledgerTransaction.create({
-        data: {
-          userId: req.user.id,
-          partyType: 'CUSTOMER',
-          partyId: invoice.customerId,
-          transactionDate: txDate,
-          description: `Payment (${method}) — ${invoice.invoiceNo}`,
-          referenceType: 'PAYMENT',
-          referenceId: invoice.id,
-          debit: 0,
-          credit: payAmt,
-          runningBalance: ledgerRunning - payAmt,
-        },
-      }),
-    ];
-
-    if (method === 'BANK') {
-      // Bank payment received
-      const lastBankEntry = await prisma.bankBookEntry.findFirst({
-        where: { userId: req.user.id, bankAccountId },
-        orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-      });
-      const bankRunning = parseFloat(lastBankEntry?.runningBalance ?? bankAccount.openingBalance);
-      const newBankBalance = bankRunning + payAmt;
-
-      txOps.push(
-        prisma.bankBookEntry.create({
-          data: {
-            userId: req.user.id,
-            bankAccountId,
-            transactionDate: txDate,
-            description: `Received payment — ${invoice.invoiceNo}`,
-            debit: payAmt,
-            credit: 0,
-            runningBalance: newBankBalance,
-            referenceType: 'INVOICE',
-            referenceId: invoice.id,
-            partyName: invoice.customer.customerName.toUpperCase(),
-          },
-        }),
-        prisma.bankAccount.update({
-          where: { id: bankAccountId },
-          data: { currentBalance: newBankBalance },
-        }),
-      );
-    } else {
-      // Cash payment received
-      const lastCashEntry = await prisma.cashBookEntry.findFirst({ where: { userId: req.user.id }, orderBy: { createdAt: 'desc' } });
-      const cashRunning = parseFloat(lastCashEntry?.runningBalance || 0);
-      const mcrNo2 = await getNextEntryNo(req.user.id, 'MCR');
-
-      txOps.push(
-        prisma.cashBookEntry.create({
-          data: {
-            userId: req.user.id,
-            transactionDate: txDate,
-            description: `MCR# ${mcrNo2}, Received cash due to ${payAmt} — ${invoice.invoiceNo}`,
-            cashIn: payAmt,
-            cashOut: 0,
-            runningBalance: cashRunning + payAmt,
-            referenceType: 'INVOICE',
-            referenceId: invoice.id,
-            entryType: 'MCR',
-            entryNo: mcrNo2,
-            partyName: invoice.customer.customerName.toUpperCase(),
-          },
-        }),
-      );
-    }
-
-    await prisma.$transaction(txOps);
-
-    res.json({ success: true, message: `Payment of ${payAmt} recorded on invoice ${invoice.invoiceNo}.` });
-  } catch (err) {
-    next(err);
-  }
+    const invoice = await load(req.user.id, req.params.id), b = req.body;
+    const amount = number(b.amount, 'payment amount', { min: '0.01' });
+    const method = enumeration(b.paymentMethod, ['CASH', 'BANK'], 'payment method', 'CASH');
+    if (amount.gt(invoice.balanceAmount)) bad('Payment exceeds balance due.');
+    await checkedBank(req.user.id, method, b.bankAccountId);
+    const paid = D(invoice.paidAmount).plus(amount), balance = D(invoice.balanceAmount).minus(amount);
+    const changed = await prisma.invoice.updateMany({ where: { id: invoice.id, userId: req.user.id, paidAmount: invoice.paidAmount, balanceAmount: { gte: amount.toFixed(2) } }, data: { paidAmount: paid.toFixed(2), balanceAmount: balance.toFixed(2), paymentStatus: status(D(invoice.totalAmount), paid) } });
+    if (changed.count !== 1) throw Object.assign(new Error('Invoice changed. Reload and retry.'), { statusCode: 409 });
+    await postParty(req.user.id, 'CUSTOMER', invoice.customerId, b.paymentDate, 'Later payment — ' + invoice.invoiceNo, 0, amount, 'INVOICE_PAYMENT', invoice.id);
+    await postMoney({ userId: req.user.id, method, bankAccountId: b.bankAccountId, date: b.paymentDate, amount, description: 'Later receipt — ' + invoice.invoiceNo, referenceType: 'INVOICE_PAYMENT', referenceId: invoice.id });
+    await prisma.customer.updateMany({ where: { id: invoice.customerId, userId: req.user.id }, data: { currentBalance: { decrement: amount.toFixed(2) } } });
+    await prisma.auditEvent.create({ data: { userId: req.user.id, entityId: invoice.id, action: 'INVOICE_PAYMENT', before: JSON.stringify({ paid: invoice.paidAmount, balance: invoice.balanceAmount }), after: JSON.stringify({ paid, balance, amount, method, bankAccountId: b.bankAccountId || null, date: businessDay(b.paymentDate) }) } });
+    res.json({ success: true, message: 'Payment recorded.' });
+  } catch (error) { next(error); }
 }
 
-// ── PUT /api/invoices/:id ────────────────────────────────────
-// Same-day or password-authorized past invoice editing with full transaction re-processing
+async function reverseInitial(invoice) {
+  const userId = invoice.userId;
+  const ledger = await prisma.ledgerTransaction.findMany({ where: { userId, referenceId: invoice.id, referenceType: { in: ['INVOICE', 'INVOICE_INITIAL_PAYMENT'] } } });
+  for (const row of ledger) {
+    if (await prisma.ledgerTransaction.findFirst({ where: { userId, referenceId: row.id, referenceType: 'INVOICE_REVERSAL' } })) continue;
+    await postParty(userId, 'CUSTOMER', invoice.customerId, row.transactionDate, 'Revision reversal — ' + invoice.invoiceNo, row.credit, row.debit, 'INVOICE_REVERSAL', row.id);
+  }
+  for (const [model, method] of [['cashBookEntry', 'CASH'], ['bankBookEntry', 'BANK']]) {
+    const entries = await prisma[model].findMany({ where: { userId, referenceId: invoice.id, referenceType: 'INVOICE_INITIAL' } });
+    for (const row of entries) {
+      if (await prisma[model].findFirst({ where: { userId, referenceId: row.id, referenceType: 'INVOICE_REVERSAL' } })) continue;
+      const amount = method === 'CASH' ? D(row.cashOut).minus(row.cashIn) : D(row.credit).minus(row.debit);
+      await postMoney({ userId, method, bankAccountId: row.bankAccountId, date: row.transactionDate, amount, description: 'Revision reversal — ' + invoice.invoiceNo, referenceType: 'INVOICE_REVERSAL', referenceId: row.id });
+    }
+  }
+  await moveInvoiceStock(userId, invoice.id, invoice.invoiceDate, invoice.items, true);
+  await profit(userId, invoice.invoiceDate, D(invoice.totalAmount).negated(), D(invoice.recordedCost).negated());
+}
+
 async function update(req, res, next) {
   try {
-    const invoice = await prisma.invoice.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-      include: { customer: true, items: true },
-    });
-    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found.' });
-
-    // Check same-day vs past date
-    const today = new Date();
-    const invoiceDateObj = new Date(invoice.invoiceDate);
-    const isToday =
-      invoiceDateObj.getFullYear() === today.getFullYear() &&
-      invoiceDateObj.getMonth() === today.getMonth() &&
-      invoiceDateObj.getDate() === today.getDate();
-
-    if (!isToday) {
-      const { adminPassword } = req.body;
-      if (!adminPassword) {
-        return res.status(401).json({
-          success: false,
-          requiresPassword: true,
-          message: 'Store owner password is required to edit past-dated invoices.',
-        });
-      }
-      const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-      const valid = await bcrypt.compare(adminPassword, user.passwordHash);
-      if (!valid) {
-        return res.status(401).json({
-          success: false,
-          requiresPassword: true,
-          message: 'Incorrect password. Past invoice edit not authorized.',
-        });
-      }
+    const original = await load(req.user.id, req.params.id), b = req.body;
+    if (businessDay(original.invoiceDate) !== businessDay()) {
+      const owner = await prisma.user.findUnique({ where: { id: req.user.id } });
+      if (typeof b.adminPassword !== 'string' || !(await bcrypt.compare(b.adminPassword, owner.passwordHash))) throw Object.assign(new Error('Store owner password is required to edit past-dated invoices.'), { statusCode: 401 });
     }
-
-    const {
-      customerId,
-      invoiceDate,
-      items,
-      paidAmount,
-      notes,
-      paymentMethod,
-      bankAccountId,
-      narration,
-      salesman,
-      invoiceType,
-    } = req.body;
-
-    const targetCustomerId = customerId || invoice.customerId;
-    const method = (paymentMethod || invoice.paymentMethod || 'CASH').toUpperCase();
-    const txDate = invoiceDate ? new Date(invoiceDate) : new Date(invoice.invoiceDate);
-
-    // Validate bank account if method is BANK and paid > 0
-    let bankAccount = null;
-    const paid = parseFloat(paidAmount !== undefined ? paidAmount : invoice.paidAmount) || 0;
-    const targetBankAccountId = bankAccountId || invoice.bankAccountId;
-    if (method === 'BANK' && paid > 0) {
-      if (!targetBankAccountId) {
-        return res.status(400).json({ success: false, message: 'Bank account is required when payment method is Bank.' });
-      }
-      bankAccount = await prisma.bankAccount.findFirst({ where: { id: targetBankAccountId, userId: req.user.id } });
-      if (!bankAccount) {
-        return res.status(404).json({ success: false, message: 'Bank account not found.' });
-      }
+    if (original.initialPaidAmount === null || original.initialPaidAmount === undefined || original.recordedCost === null || original.recordedCost === undefined || original.items.some((i) => i.unitCost === null || i.unitCost === undefined)) {
+      throw Object.assign(new Error('This legacy invoice lacks reliable payment/cost snapshots. Editing requires a separately reviewed migration; no records were changed.'), { statusCode: 409 });
     }
-
-    // Process new items (or retain old items if not provided)
-    const newItemsInput = (items && items.length > 0) ? items : invoice.items;
-    const productIds = newItemsInput.map((i) => i.productId).filter(Boolean);
-    const uniqueIds = [...new Set(productIds)];
-    const products = uniqueIds.length > 0 ? await prisma.product.findMany({
-      where: { id: { in: uniqueIds }, userId: req.user.id },
-    }) : [];
-
-    // Line totals calculation
-    const lineItems = newItemsInput.map((item) => {
-      const product = item.productId ? products.find((p) => p.id === item.productId) : null;
-      const qty = parseFloat(item.qty) || 0;
-      const unitPrice = parseFloat(item.unitPrice) || 0;
-      const discount = parseFloat(item.discount || 0);
-      const grossTotal = parseFloat((qty * unitPrice).toFixed(2));
-      const discountAmt = parseFloat((grossTotal * (discount / 100)).toFixed(2));
-      const lineNet = parseFloat((grossTotal - discountAmt).toFixed(2));
-      const schemeUnits = parseFloat(item.schemeUnits || 0);
-      const schemeTotal = parseFloat(item.schemeTotal || 0);
-      const freePcs = parseFloat(item.freePcs || 0);
-      const costTotal = product ? parseFloat((qty * parseFloat(product.purchasePrice)).toFixed(2)) : 0;
-
-      return {
-        ...item,
-        productId: item.productId || null,
-        customName: item.customName || (!item.productId ? (item.productName || 'Manual Item') : null),
-        qty,
-        unitPrice,
-        pricingMode: item.pricingMode || 'RETAIL',
-        batchNo: item.batchNo || product?.batchNo || null,
-        packing: item.packing || product?.unit || null,
-        discount,
-        discountAmt,
-        schemeUnits,
-        schemeTotal,
-        freePcs,
-        grossTotal,
-        total: lineNet,
-        costTotal,
-      };
-    });
-
-    const totalAmount = lineItems.reduce((s, i) => s + parseFloat(i.total), 0).toFixed(2);
-    const balance = (parseFloat(totalAmount) - paid).toFixed(2);
-    const paymentStatus = paid <= 0 ? 'PENDING' : paid >= parseFloat(totalAmount) ? 'PAID' : 'PARTIAL';
-
-    const customer = await prisma.customer.findFirst({ where: { id: targetCustomerId, userId: req.user.id } });
-    if (!customer) return res.status(404).json({ success: false, message: 'Customer not found.' });
-
-    // Atomic Reversal & Reapplication
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. REVERSE OLD EFFECTS
-      // Revert old stock deductions
-      for (const oldItem of invoice.items) {
-        if (oldItem.productId) {
-          const oldDeducted = parseFloat(oldItem.qty) + parseFloat(oldItem.schemeUnits || 0) + parseFloat(oldItem.freePcs || 0);
-          await tx.product.update({
-            where: { id: oldItem.productId },
-            data: { stockQty: { increment: oldDeducted } },
-          });
-        }
-      }
-      await tx.stockMovement.deleteMany({ where: { referenceId: invoice.id } });
-
-      // Revert old customer balance
-      await tx.customer.update({
-        where: { id: invoice.customerId },
-        data: { currentBalance: { decrement: parseFloat(invoice.balanceAmount) } },
-      });
-
-      // Delete old ledger entries for this invoice
-      await tx.ledgerTransaction.deleteMany({ where: { referenceId: invoice.id } });
-
-      // Delete old cash / bank entries
-      await tx.cashBookEntry.deleteMany({ where: { referenceId: invoice.id } });
-      await tx.bankBookEntry.deleteMany({ where: { referenceId: invoice.id } });
-      if (invoice.paymentMethod === 'BANK' && invoice.bankAccountId && parseFloat(invoice.paidAmount) > 0) {
-        await tx.bankAccount.update({
-          where: { id: invoice.bankAccountId },
-          data: { currentBalance: { decrement: parseFloat(invoice.paidAmount) } },
-        });
-      }
-
-      // Delete old items
-      await tx.invoiceItem.deleteMany({ where: { invoiceId: invoice.id } });
-
-      // 2. APPLY NEW EFFECTS
-      // Check stock for new catalog items
-      for (const item of lineItems) {
-        if (!item.productId) continue;
-        const freshProd = await tx.product.findUnique({ where: { id: item.productId } });
-        const reqQty = parseFloat(item.qty) + parseFloat(item.schemeUnits || 0) + parseFloat(item.freePcs || 0);
-        if (parseFloat(freshProd.stockQty) < reqQty) {
-          throw new Error(`Insufficient stock for "${freshProd.productName}". Available: ${freshProd.stockQty}, required: ${reqQty}.`);
-        }
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stockQty: { decrement: reqQty } },
-        });
-        await tx.stockMovement.create({
-          data: {
-            userId: req.user.id,
-            productId: item.productId,
-            movementType: 'SALE',
-            qty: -reqQty,
-            referenceId: invoice.id,
-            movementDate: txDate,
-          },
-        });
-      }
-
-      // Re-create items
-      await tx.invoiceItem.createMany({
-        data: lineItems.map((i) => ({
-          invoiceId: invoice.id,
-          productId: i.productId || null,
-          customName: i.customName || null,
-          qty: i.qty,
-          unitPrice: i.unitPrice,
-          pricingMode: i.pricingMode,
-          batchNo: i.batchNo,
-          packing: i.packing,
-          discount: i.discount,
-          discountAmt: i.discountAmt,
-          schemeUnits: i.schemeUnits,
-          schemeTotal: i.schemeTotal,
-          freePcs: i.freePcs,
-          grossTotal: i.grossTotal,
-          total: i.total,
-        })),
-      });
-
-      // Update customer balance (+ new balance)
-      await tx.customer.update({
-        where: { id: targetCustomerId },
-        data: { currentBalance: { increment: parseFloat(balance) } },
-      });
-
-      // Post new customer ledger transaction (debit for sale)
-      await tx.ledgerTransaction.create({
-        data: {
-          userId: req.user.id,
-          partyType: 'CUSTOMER',
-          partyId: targetCustomerId,
-          transactionDate: txDate,
-          description: `Invoice — ${invoice.invoiceNo} (Updated)`,
-          referenceType: 'INVOICE',
-          referenceId: invoice.id,
-          debit: parseFloat(totalAmount),
-          credit: 0,
-          runningBalance: 0,
-        },
-      });
-
-      // If payment was made
-      if (paid > 0) {
-        if (method === 'BANK' && targetBankAccountId) {
-          const lastBank = await tx.bankBookEntry.findFirst({
-            where: { userId: req.user.id, bankAccountId: targetBankAccountId },
-            orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
-          });
-          const bRun = parseFloat(lastBank?.runningBalance ?? bankAccount.openingBalance);
-          await tx.bankBookEntry.create({
-            data: {
-              userId: req.user.id,
-              bankAccountId: targetBankAccountId,
-              transactionDate: txDate,
-              description: `Payment received — ${invoice.invoiceNo} (${customer.customerName})`,
-              debit: paid,
-              credit: 0,
-              runningBalance: bRun + paid,
-              referenceType: 'INVOICE',
-              referenceId: invoice.id,
-            },
-          });
-          await tx.bankAccount.update({
-            where: { id: targetBankAccountId },
-            data: { currentBalance: { increment: paid } },
-          });
-        } else {
-          const lastCash = await tx.cashBookEntry.findFirst({
-            where: { userId: req.user.id },
-            orderBy: { createdAt: 'desc' },
-          });
-          const cRun = parseFloat(lastCash?.runningBalance || 0);
-          const mcrNo = await getNextEntryNo(req.user.id, 'MCR');
-          await tx.cashBookEntry.create({
-            data: {
-              userId: req.user.id,
-              transactionDate: txDate,
-              description: `MCR# ${mcrNo}, Cash received from sale invoice# ${invoice.invoiceNo}`,
-              cashIn: paid,
-              cashOut: 0,
-              runningBalance: cRun + paid,
-              referenceType: 'INVOICE',
-              referenceId: invoice.id,
-              entryType: 'MCR',
-              entryNo: mcrNo,
-              partyName: customer.customerName.toUpperCase(),
-            },
-          });
-        }
-
-        // Ledger credit for payment
-        await tx.ledgerTransaction.create({
-          data: {
-            userId: req.user.id,
-            partyType: 'CUSTOMER',
-            partyId: targetCustomerId,
-            transactionDate: txDate,
-            description: `Payment (${method}) — ${invoice.invoiceNo}`,
-            referenceType: 'PAYMENT',
-            referenceId: invoice.id,
-            debit: 0,
-            credit: paid,
-            runningBalance: 0,
-          },
-        });
-      }
-
-      // 3. RECALCULATE RUNNING BALANCES FOR THIS CUSTOMER
-      const allCustomerTxs = await tx.ledgerTransaction.findMany({
-        where: { userId: req.user.id, partyType: 'CUSTOMER', partyId: targetCustomerId },
-        orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
-      });
-      let runningBal = parseFloat(customer.openingBalance || 0);
-      for (const txEntry of allCustomerTxs) {
-        runningBal += parseFloat(txEntry.debit) - parseFloat(txEntry.credit);
-        await tx.ledgerTransaction.update({
-          where: { id: txEntry.id },
-          data: { runningBalance: runningBal },
-        });
-      }
-
-      // 4. UPDATE INVOICE RECORD
-      const updatedInvoice = await tx.invoice.update({
-        where: { id: invoice.id },
-        data: {
-          customerId: targetCustomerId,
-          invoiceDate: txDate,
-          totalAmount,
-          paidAmount: paid,
-          balanceAmount: balance,
-          paymentStatus,
-          paymentMethod: method,
-          bankAccountId: method === 'BANK' ? targetBankAccountId : null,
-          invoiceType: (invoiceType || invoice.invoiceType || 'CREDIT').toUpperCase(),
-          narration: narration !== undefined ? (narration || null) : invoice.narration,
-          salesman: salesman !== undefined ? (salesman || null) : invoice.salesman,
-          notes: notes !== undefined ? (notes || null) : invoice.notes,
-        },
-        include: {
-          customer: true,
-          items: { include: { product: true } },
-          bankAccount: true,
-        },
-      });
-
-      return updatedInvoice;
-    }, { maxWait: 15000, timeout: 35000 });
-
-    res.json({
-      success: true,
-      message: `Invoice ${result.invoiceNo} successfully updated.`,
-      data: result,
-    });
-  } catch (err) {
-    next(err);
-  }
+    const later = D(original.paidAmount).minus(original.initialPaidAmount);
+    const customerId = b.customerId || original.customerId;
+    if (later.gt(0) && customerId !== original.customerId) bad('An invoice with later payments cannot be moved to another customer.');
+    await owned('customer', customerId, req.user.id, 'Customer');
+    const lines = await invoiceLines(req.user.id, b.items || original.items, original.items), { total, cost } = invoiceTotals(lines);
+    const paid = number(b.paidAmount ?? original.paidAmount, 'paid amount');
+    const initial = paid.minus(later);
+    if (initial.lt(0) || paid.gt(total)) bad('Revised total/payment must preserve all later payments without overpayment.');
+    const method = enumeration(b.paymentMethod ?? original.paymentMethod, ['CASH', 'BANK'], 'payment method');
+    const bankAccountId = b.bankAccountId ?? original.bankAccountId;
+    if (initial.gt(0)) await checkedBank(req.user.id, method, bankAccountId);
+    const type = enumeration(b.invoiceType ?? original.invoiceType, ['CASH', 'CREDIT'], 'invoice type');
+    if (type === 'CASH' && !paid.eq(total)) bad('Cash invoices must be paid in full.');
+    await reverseInitial(original);
+    await prisma.customer.updateMany({ where: { id: original.customerId, userId: req.user.id }, data: { currentBalance: { decrement: D(original.balanceAmount).toFixed(2) } } });
+    await prisma.invoiceItem.deleteMany({ where: { invoiceId: original.id } });
+    const previousBalance = customerId === original.customerId ? original.prvBalance
+      : (await require('../services/statementService').partyStatement(prisma, req.user.id, 'CUSTOMER', customerId, { to: businessDay(b.invoiceDate || original.invoiceDate) })).summary.closingBalance;
+    const invoice = await prisma.invoice.update({ where: { id: original.id, userId: req.user.id }, data: { customerId, prvBalance: previousBalance, invoiceDate: dateOnly(b.invoiceDate || original.invoiceDate), totalAmount: total.toFixed(2), recordedCost: cost.toFixed(2), paidAmount: paid.toFixed(2), initialPaidAmount: initial.toFixed(2), balanceAmount: total.minus(paid).toFixed(2), paymentStatus: status(total, paid), paymentMethod: method, bankAccountId: method === 'BANK' && initial.gt(0) ? bankAccountId : null, invoiceType: type, narration: b.narration ?? original.narration, salesman: b.salesman ?? original.salesman, notes: b.notes ?? original.notes, items: { create: lines } } });
+    await initialEffects(invoice, lines, cost);
+    await prisma.customer.updateMany({ where: { id: customerId, userId: req.user.id }, data: { currentBalance: { increment: total.minus(paid).toFixed(2) } } });
+    const full = await load(req.user.id, invoice.id);
+    await prisma.auditEvent.create({ data: { userId: req.user.id, entityId: invoice.id, action: 'INVOICE_EDIT', before: JSON.stringify(original), after: JSON.stringify(full) } });
+    res.json({ success: true, message: 'Invoice updated; later payments retained.', data: full });
+  } catch (error) { next(error); }
 }
-
-module.exports = { list, getOne, create, update, recordPayment, markPrinted };
+module.exports = { list, getOne, markPrinted, create: transactionalController(create), update: transactionalController(update), recordPayment: transactionalController(recordPayment) };
