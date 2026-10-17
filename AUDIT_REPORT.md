@@ -8,7 +8,7 @@ Provisional scores: UI/UX 5/10 (shared visual system but accessibility/state gap
 
 Approved: Batch 1 S01–S06, F01–F11, F14–F16, F18, P01. D01 is approved separately. Only G01 and G05 from Batch 2 are approved. Stop after Batch 1 for review. No push. Disposable database URL pending; never use the production DATABASE_URL. Other findings remain held.
 
-Accounting policy supplied by owner: customer receivable debit; supplier payable credit; opening counted once; P&L is gross profit; free/bonus cost included; Asia/Karachi business dates; same-day edits free, past-date edits password-gated; preserve later payments and audit trail. Accountant confirmation pending.
+Accounting policy supplied by owner: customer receivable debit; supplier payable credit; opening counted once; P&L is gross profit; free/bonus cost included; moving weighted average inventory cost (subsequently confirmed); Asia/Karachi business dates; same-day edits free, past-date edits password-gated; preserve later payments and audit trail. Accountant confirmation pending.
 
 ## Project map
 
@@ -90,9 +90,9 @@ Locations below refer to the audit baseline; implementation may move lines. Yes 
 ## Batches and verification
 
 1. Approved Batch 1: guarded isolated harness and P01; S01–S06 security/auth; F01 dashboard; F04–F06 posting/validation; F02/F03/F07–F11/F14 accounting; F15 atomic import; F16/F18 session/save. Tests: ownership, invalid input, duplicate/retried/concurrent posting, invoice revisions/later payments/date changes, opening/filter/page reconciliation, exact fixture reports. Existing-data discrepancy report must be SELECT-only and shown before any proposal. No repairs.
-2. Only G01/G05 approved from Batch 2; execute after Batch 1 review. Other overlap/UI/contract work held. Dependencies: stable accounting fixtures; verify API/export parity and cache response/invalidation consistency.
+2. Only G01/G05 approved from Batch 2. G01 shared report builders are necessary to Batch 1 accounting corrections and are included with those changes. Full G05 query-key/response-contract consolidation remains queued for the Batch 1 review; F16 session isolation is included now. Other overlap/UI/contract work held.
 3. Batch 3 held: UI states, accessibility, responsive/token/copy work. Verify Chrome/Android Chrome, keyboard, contrast and viewport sizes. Dark mode and RTL explicitly excluded.
-4. D01 separately approved, queued after Batch 1 review. Test backup during writes and isolated restore integrity. Remaining docs/lint cleanup held.
+4. D01 is included as the separately approved extension to Batch 1. Runtime snapshot/restore testing remains blocked on test-execution access. Remaining docs/lint cleanup held.
 
 ## Rollback
 
@@ -108,4 +108,51 @@ New branch `codex/audit-batch-1`; focused commits referencing IDs, no push. Reve
 
 ## New findings (not automatically authorized)
 
-None recorded yet. Newly discovered issues outside approved IDs must be listed here rather than fixed.
+N01 — Security / High / source-verified: unexpired access JWTs remain valid after logout/password change until expiry. `backend/src/middleware/authMiddleware.js:22` verifies signature/expiry without a revocation/version check; `backend/src/controllers/authController.js:222` revokes refresh tokens only. This is outside the approved refresh-token/validation changes; it has NOT been fixed. Runtime exploitation is unverified. A separate approved design would be needed for immediate access-token revocation.
+
+## Batch 1 implementation checkpoint (not final acceptance)
+
+Branch: `codex/audit-batch-1`. Local commits only; no push. No database connection, migration, existing-data repair or desktop launch has occurred.
+
+### Prepared changes
+
+- S01–S06: tenant-scoped references, strict password validation, unique/atomic refresh rotation, verified PostgreSQL TLS and restricted diagnostics/error output.
+- F01–F11/F14–F16/F18: schema-correct dashboard; serialized and conditionally checked stock/payment writes; required idempotency keys; append-only invoice reversals and audit snapshots; later payments retained; Decimal/server and integer/browser rounding agreement; bonus COGS; weighted-average purchases; single-count openings and canonical as-of/filter/page statements; atomic validated imports; session cache clearing/stale-response rejection; current-state keyboard save with pending guard.
+- G01: report/statement JSON and PDF/XLSX use shared data builders, including gross profit. No operating expenses are deducted from gross profit.
+- P01: install/build no longer pushes schema. Explicit database runners require the owner-approved target hash; the allowlist is EMPTY until the disposable URL is supplied. Existing unsafe localhost E2E entry point is disabled.
+- D01: SQLite `VACUUM INTO` snapshot, integrity/foreign-key checks before publishing, then retention. A narrow additive desktop metadata upgrade takes a verified backup before schema changes; it contains no financial DML and has not run. This does not implement the held provider-adapter refactor.
+
+### Material behavior and limits
+
+- Additive PostgreSQL SQL is prepared in `backend/prisma/posting-safety.sql`; NOT applied. Clients/schema must be generated and migrated on the disposable database before integration verification. Production deployment remains outside this task.
+- Legacy invoices without reliable initial-payment and unit-cost snapshots fail closed on edit (409). No historical cost/payment values are invented or backfilled. New invoice revisions preserve original snapshots in audit records.
+- Legacy supplier signs are normalized only in read results according to the old controller's known reference types. Persisted historical rows remain untouched.
+- Incomplete historical inventory/classification evidence is explicitly marked Unverified; a zero difference alone cannot claim a balanced report.
+- New retroactive stock postings before later stock movements fail closed rather than silently repricing historical weighted-average costs. Password-authorized invoice revisions retain recorded cost snapshots.
+- Mutating business APIs now require `Idempotency-Key`; the frontend supplies it, shares keys for concurrent duplicate writes, and preserves them after unknown network outcomes.
+- Imports now require an explicit purchase cost; invalid rows or duplicate product/batch identities reject the entire import. There is no guessed MRP-to-cost fallback.
+- Broad UI polish, remaining lint cleanup, full G05 consolidation and the web/desktop provider refactor remain held/queued as authorized above. Existing SQLite provider incompatibilities identified in O02 are not claimed resolved.
+
+### Verification available without a database
+
+- Database-free regression suite: 27 tests prepared/passing across financial fixtures, ownership, edits/later payments, past-date password gate, weighted average/bonus COGS, rollback/idempotency/import atomicity, refresh rotation, stale-session responses, renderer parity and backup/upgrade control flow.
+- Static checks: backend/desktop source syntax; both Prisma schemas validate using inert local URLs without connecting. Frontend lint exits 0 with 46 remaining warnings; frontend build compiles 31 assets in memory with output writing disabled.
+- Actual PDF/XLSX renderer buffers were generated in memory. Visual browser/PDF layout QA is unverified.
+- Guard probe refuses execution with no TEST_DATABASE_URL. Unit checks reject unapproved targets even if TEST_DATABASE_URL is present.
+- Neon integration, concurrency/locking behavior, additive SQL application, desktop WAL snapshot/restore and actual existing-data scan remain Unverified pending the owner's disposable URL. Backend generation/build and packaged desktop build have not run.
+
+### Before/after report-calculation fixture (not a live database)
+
+Fixture: opening bank 100, customer debit 50, supplier credit 20, opening stock 10 at 10; purchase 10 at 20 with 50 paid; sale of 4 plus 1 free at 30 with 40 bank receipt and later 20 cash receipt. Recorded inventory average is 15, COGS 75 and gross profit 45. The baseline report code is pinned to commit `176b6e3775e0619a11cba576aa1fe252bf693ddc`; these are report-calculation comparisons, not a full baseline posting simulation.
+
+| Report | Before | After |
+|---|---:|---:|
+| Trial Balance debit / credit | 615 / 0 | 445 / 445 |
+| Balance Sheet assets / liabilities / equity | 445 / -170 / 615 | 445 / 170 / 275 |
+| Filtered customer closing | 60 DR | 110 DR |
+| Filtered supplier closing | 150 DR | 170 CR |
+| Bank book closing | 190 | 90 |
+
+### Step 7 — read-only discrepancy checkpoint
+
+The scanner starts `BEGIN TRANSACTION READ ONLY`, executes fixed SELECTs, and rolls back. Its fixture test reports customer stored 60 versus computed 110, and bank stored 190 versus computed 90, while leaving those stored values unchanged. No repair is proposed or applied. The actual existing-data discrepancy report cannot be produced until the disposable database URL is provided; production is never a fallback.
