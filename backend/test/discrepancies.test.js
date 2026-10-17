@@ -20,7 +20,7 @@ test('F03/F05 step 7: discrepancy scan is SELECT-only and never proposes or appl
     async end() {}
   }
   const source = fs.readFileSync(path.join(__dirname, '../scripts/discrepancies.js'), 'utf8');
-  await vm.runInNewContext(source, { URL, process: { env: {} }, require: (name) => {
+  await vm.runInNewContext(source, { URL, process: { env: {}, argv: [] }, require: (name) => {
     if (name.includes('databaseTarget')) return { requireTestDatabase: () => 'postgresql://unused.test/disposable' };
     if (name === 'pg') return { Pool };
     return require('../src/services/statementService');

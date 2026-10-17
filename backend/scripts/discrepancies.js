@@ -7,7 +7,7 @@ const { statement, openingFallback, D } = require('../src/services/statementServ
 async function run() {
   const verified = new URL(target);
   verified.searchParams.delete('sslmode');
-  const pool = new Pool({ connectionString: verified.toString(), ssl: { rejectUnauthorized: true }, max: 1 });
+  const pool = new Pool({ connectionString: verified.toString(), ssl: { rejectUnauthorized: true }, max: 1, connectionTimeoutMillis: 10000, statement_timeout: 60000 });
   const client = await pool.connect();
   try {
     await client.query('BEGIN TRANSACTION READ ONLY');
@@ -35,7 +35,11 @@ async function run() {
       else if (!qty.eq(product.stockQty)) differences.push({ type: 'STOCK', id: product.id, stored: String(product.stockQty), computed: qty.toString() });
     }
     await client.query('ROLLBACK');
-    console.log(JSON.stringify({ readOnly: true, historicalRepair: false, differences }, null, 2));
+    const summary = process.argv.includes('--summary') ? {
+      counts: differences.reduce((counts, row) => { counts[row.type] = (counts[row.type] || 0) + 1; return counts; }, {}),
+      differences: differences.filter((row) => row.type !== 'INVENTORY_EVIDENCE'),
+    } : { differences };
+    console.log(JSON.stringify({ readOnly: true, historicalRepair: false, ...summary }, null, 2));
   } finally { client.release(); await pool.end(); }
 }
 run().catch((error) => { console.error(error.message); process.exitCode = 1; });

@@ -14,6 +14,14 @@ test('D01: committed WAL rows survive SQLite snapshot and isolated restore', asy
   const source = new PrismaClient({ datasources: { db: { url: `file:${path.join(root, 'source.db')}` } } });
   let restored;
   try {
+    // Apply the reviewed SQLite SQL to an isolated pre-migration test schema.
+    for (const table of ['invoices', 'invoice_items', 'stock_movements', 'cash_book', 'bank_book']) {
+      await source.$executeRawUnsafe(`CREATE TABLE ${table} (id TEXT PRIMARY KEY)`);
+    }
+    const migration = fs.readFileSync(path.join(__dirname, '../../desktop/prisma/posting-safety.sql'), 'utf8');
+    const statements = migration.replace(/--[^\n]*/g, '').split(';').map((sql) => sql.trim()).filter((sql) => sql && !/^(BEGIN IMMEDIATE|COMMIT)$/.test(sql));
+    await source.$transaction(async (tx) => { for (const sql of statements) await tx.$executeRawUnsafe(sql); });
+    await require('../src/utils/sqlitePostingSchema').ensureSqlitePostingSchema({ prisma: source });
     await source.$queryRawUnsafe('PRAGMA journal_mode=WAL');
     await source.$executeRawUnsafe('CREATE TABLE backup_fixture (id INTEGER PRIMARY KEY, amount INTEGER NOT NULL)');
     await source.$executeRawUnsafe('INSERT INTO backup_fixture VALUES (1, 100)');
