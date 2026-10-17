@@ -2,6 +2,7 @@
 // src/api/client.js  — Axios instance with JWT auto-attach + refresh
 // ─────────────────────────────────────────────────────────────
 import axios from 'axios';
+import { sessionEpoch, clearSession } from './session';
 
 // In production (Electron build), VITE_API_URL is baked in at build time.
 // In dev mode, it falls back to '/api' which the Vite proxy forwards to localhost:5000.
@@ -12,10 +13,28 @@ const api = axios.create({
   timeout: 30000,
 });
 
+const pendingWrites = new Map();
+let writeEpoch = sessionEpoch();
+function releaseWrite(config) {
+  if (config?._writeSignature && pendingWrites.get(config._writeSignature) === config.headers['Idempotency-Key']) pendingWrites.delete(config._writeSignature);
+}
+
 // Attach access token to every request
 api.interceptors.request.use((config) => {
+  config._sessionEpoch ??= sessionEpoch();
+  if (writeEpoch !== sessionEpoch()) { pendingWrites.clear(); writeEpoch = sessionEpoch(); }
+  if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase()) && !config.headers['Idempotency-Key']) {
+    const body = typeof FormData !== 'undefined' && config.data instanceof FormData
+      ? JSON.stringify([...config.data.entries()].map(([name, value]) => [name, typeof value === 'string' ? value : [value.name, value.size, value.lastModified]]))
+      : typeof config.data === 'string' ? config.data : JSON.stringify(config.data || {});
+    config._writeSignature = `${config.method}:${config.url}:${body}`;
+    const key = pendingWrites.get(config._writeSignature) || crypto.randomUUID();
+    pendingWrites.set(config._writeSignature, key);
+    config.headers['Idempotency-Key'] = key;
+  }
   const token = localStorage.getItem('accessToken');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
+  if (config._sessionEpoch !== sessionEpoch()) throw new axios.CanceledError('Session changed.');
   return config;
 });
 
@@ -29,10 +48,18 @@ function processQueue(error, token = null) {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    releaseWrite(response.config);
+    if (response.config._sessionEpoch !== sessionEpoch()) throw new axios.CanceledError('Session changed.');
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
+    if (!originalRequest || originalRequest._sessionEpoch !== sessionEpoch()) return Promise.reject(new axios.CanceledError('Session changed.'));
     const code = error.response?.data?.code;
+    // Preserve the key after an unknown network outcome so a manual retry does
+    // not post twice. Definite client rejection may start a new attempt.
+    if (error.response && error.response.status >= 400 && error.response.status < 500 && error.response.status !== 401) releaseWrite(originalRequest);
 
     if (error.response?.status === 401 && code === 'TOKEN_EXPIRED' && !originalRequest._retry) {
       if (isRefreshing) {
@@ -49,7 +76,8 @@ api.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken });
+        const { data } = await axios.post(`${API_BASE}/auth/refresh`, { refreshToken }, { timeout: 30000 });
+        if (originalRequest._sessionEpoch !== sessionEpoch()) throw new axios.CanceledError('Session changed.');
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         processQueue(null, data.accessToken);
@@ -57,8 +85,10 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
-        localStorage.clear();
-        window.location.href = '/login';
+        if (originalRequest._sessionEpoch === sessionEpoch()) {
+          clearSession();
+          window.location.href = '/login';
+        }
         return Promise.reject(refreshErr);
       } finally {
         isRefreshing = false;

@@ -1,3 +1,4 @@
+import { businessDay, businessMonthStart } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/CashBook.jsx — Client reference format
 // DATE | DETAIL (2-line) | RECEIPTS | PAYMENTS | BALANCE
@@ -16,8 +17,8 @@ function fmtDate(d) { return d ? new Date(d).toLocaleDateString('en-PK', { day: 
 
 // Default to current month
 const today = new Date();
-const defaultFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-const defaultTo = today.toISOString().split('T')[0];
+const defaultFrom = businessMonthStart();
+const defaultTo = businessDay(today);
 
 export default function CashBook() {
   const qc = useQueryClient();
@@ -28,7 +29,7 @@ export default function CashBook() {
   const PAGE_SIZE = 50;
 
   const defaultForm = {
-    transactionDate: new Date().toISOString().split('T')[0],
+    transactionDate: businessDay(),
     description: '',
     cashIn: '',
     cashOut: '',
@@ -107,7 +108,7 @@ export default function CashBook() {
               }}
               onClick={() => {
                 setForm({
-                  transactionDate: new Date().toISOString().split('T')[0],
+                  transactionDate: businessDay(),
                   description: '',
                   partyName: '',
                   cashIn: '',
@@ -124,7 +125,7 @@ export default function CashBook() {
               className="btn btn-primary btn-sm"
               onClick={() => {
                 setForm({
-                  transactionDate: new Date().toISOString().split('T')[0],
+                  transactionDate: businessDay(),
                   description: '',
                   partyName: '',
                   cashIn: '',

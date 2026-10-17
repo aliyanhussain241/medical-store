@@ -1,3 +1,4 @@
+import { businessDay } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/Employees.jsx — Employee Register & Payroll / Salary Vouchers
 // ─────────────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ const EMPTY_EMP = {
 
 const EMPTY_PAY = {
   amount: '',
-  paymentDate: new Date().toISOString().slice(0, 10),
+  paymentDate: businessDay(),
   paymentMethod: 'CASH',
   bankAccountId: '',
   narration: '',
@@ -121,7 +122,7 @@ export default function Employees() {
     setActiveEmp(emp);
     setPayForm({
       amount: emp.salary,
-      paymentDate: new Date().toISOString().slice(0, 10),
+      paymentDate: businessDay(),
       paymentMethod: 'CASH',
       bankAccountId: '',
       narration: `Salary for ${new Date().toLocaleDateString('en-PK', { month: 'long', year: 'numeric' })}`,

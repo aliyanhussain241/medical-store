@@ -1,3 +1,4 @@
+import { businessDay } from '../utils/businessDate';
 // ─────────────────────────────────────────────────────────────
 // src/pages/Invoicing.jsx
 // POS Sales Invoicing screen with:
@@ -11,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { customersAPI, productsAPI, invoicesAPI, exportAPI, offerListsAPI, downloadBlob, bankAccountsAPI } from '../api/services';
 import { useAuth } from '../context/AuthContext';
 import useDebounce from '../utils/useDebounce';
+import { lineMoney, invoiceMoney } from '../utils/lineMath';
 import toast from 'react-hot-toast';
 import { Search, Plus, Trash2, FileDown, Printer, Tag, Lock, Eye, X, CheckCircle, Landmark, Pencil, Key, Receipt, Wallet, Users, ShoppingBag } from 'lucide-react';
 import { useBusinessConfig } from '../context/BusinessConfigContext';
@@ -50,12 +52,14 @@ export default function Invoicing() {
   const { user } = useAuth();
   const cfg = useBusinessConfig();
   const qc = useQueryClient();
+  const saveLock = useRef(false);
+  const saveRequest = useRef(null);
 
   // Invoicing states
   const [customerId, setCustomerId] = useState('');
   const [salesman, setSalesman] = useState('');
   const [defaultPricingMode, setDefaultPricingMode] = useState('RETAIL'); // Item #2: Default to RETAIL
-  const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
+  const [invoiceDate, setInvoiceDate] = useState(businessDay());
   const [invoiceType, setInvoiceType] = useState('CREDIT'); // 'CREDIT' | 'CASH'
   const [editingInvoiceId, setEditingInvoiceId] = useState(null);
   const [editingInvoiceNo, setEditingInvoiceNo] = useState(null);
@@ -275,14 +279,7 @@ export default function Invoicing() {
   }
 
   // Line & grand total calculations
-  const totalAmount = useMemo(() => items.reduce((sum, item) => {
-    const q = parseFloat(item.qty) || 0;
-    const p = parseFloat(item.unitPrice) || 0;
-    const d = parseFloat(item.discount) || 0;
-    const gross = q * p;
-    const discAmt = gross * (d / 100);
-    return sum + (gross - discAmt);
-  }, 0), [items]);
+  const totalAmount = useMemo(() => invoiceMoney(items), [items]);
 
   const paid = parseFloat(paidAmount) || 0;
   const balance = totalAmount - paid;
@@ -312,7 +309,7 @@ export default function Invoicing() {
   }
 
   function handleEditInvoice(inv, password = '') {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = businessDay();
     const invDateStr = inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().slice(0, 10) : '';
     const isPast = invDateStr !== todayStr;
 
@@ -328,7 +325,7 @@ export default function Invoicing() {
     setEditingInvoiceNo(inv.invoiceNo);
     setCustomerId(inv.customerId || '');
     setSalesman(inv.salesman || '');
-    setInvoiceDate(inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+    setInvoiceDate(inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : businessDay());
     setInvoiceType(inv.invoiceType || (parseFloat(inv.paidAmount) >= parseFloat(inv.totalAmount) ? 'CASH' : 'CREDIT'));
     setPaidAmount(inv.paidAmount ? inv.paidAmount.toString() : '');
     setPaymentMethod(inv.paymentMethod || 'CASH');
@@ -370,9 +367,11 @@ export default function Invoicing() {
   }
 
   const saveMutation = useMutation({
-    mutationFn: (data) => invoicesAPI.create(data),
+    mutationFn: (data) => invoicesAPI.create(data, saveRequest.current?.key),
+    onSettled: () => { saveLock.current = false; },
     onSuccess: (res) => {
       const inv = res.data.data;
+      saveRequest.current = null;
       toast.success(`Invoice ${inv.invoiceNo} saved!`);
       setSavedInvoiceId(inv.id);
       setSavedInvoiceData(inv);
@@ -398,10 +397,12 @@ export default function Invoicing() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }) => invoicesAPI.update(id, data),
+    mutationFn: ({ id, data }) => invoicesAPI.update(id, data, saveRequest.current?.key),
+    onSettled: () => { saveLock.current = false; },
     onSuccess: (res) => {
       const inv = res.data.data;
       toast.success(`Invoice ${inv.invoiceNo} updated successfully!`);
+      saveRequest.current = null;
       setSavedInvoiceId(inv.id);
       setSavedInvoiceData(inv);
       setPreviewModalOpen(true);
@@ -415,6 +416,7 @@ export default function Invoicing() {
   });
 
   function handleSave() {
+    if (saveLock.current || saveMutation.isPending || updateMutation.isPending) return;
     if (!customerId) {
       toast.error('Please select a customer.');
       return;
@@ -450,8 +452,7 @@ export default function Invoicing() {
       notes: notes.trim() || undefined,
       ...(isPastEdit && adminPassword ? { adminPassword } : {}),
       items: items.map((i) => {
-        const gross = (parseFloat(i.qty) || 0) * (parseFloat(i.unitPrice) || 0);
-        const discAmt = gross * ((parseFloat(i.discount) || 0) / 100);
+        const { gross, discount: discAmt } = lineMoney(i.qty, i.unitPrice, i.discount);
         return {
           productId: i.productId || null,
           customName: !i.productId || i.isManual ? (i.productName || 'Manual Item') : undefined,
@@ -470,6 +471,9 @@ export default function Invoicing() {
       }),
     };
 
+    const signature = JSON.stringify({ id: editingInvoiceId, payload });
+    if (saveRequest.current?.signature !== signature) saveRequest.current = { signature, key: crypto.randomUUID() };
+    saveLock.current = true;
     if (editingInvoiceId) {
       updateMutation.mutate({ id: editingInvoiceId, data: payload });
     } else {
@@ -509,8 +513,11 @@ export default function Invoicing() {
   }
 
   // Keyboard shortcuts for power cashiers: F2 to search, Ctrl+Enter to save
+  const currentSave = useRef(handleSave);
+  useEffect(() => { currentSave.current = handleSave; });
   useEffect(() => {
     function handleKeyDown(e) {
+      if (e.target?.closest?.('.modal, .modal-overlay, [role="dialog"]')) return;
       if (e.key === 'F2') {
         e.preventDefault();
         const searchEl = document.getElementById('prod-search-inv');
@@ -518,12 +525,12 @@ export default function Invoicing() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
-        handleSave();
+        currentSave.current();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [customerId, items, paidAmount, salesman, notes, invoiceDate]);
+  }, []);
 
   return (
     <div className="invoicing-page">
@@ -1029,10 +1036,7 @@ export default function Invoicing() {
                   ) : (
                     items.map((item, idx) => {
                       const qty = parseFloat(item.qty) || 0;
-                      const price = parseFloat(item.unitPrice) || 0;
-                      const gross = qty * price;
-                      const discAmt = gross * ((parseFloat(item.discount) || 0) / 100);
-                      const net = gross - discAmt;
+                      const { gross, total: net } = lineMoney(item.qty, item.unitPrice, item.discount);
 
                       return (
                         <tr
@@ -1363,9 +1367,7 @@ export default function Invoicing() {
                 {items.map((item, idx) => {
                   const qty = parseFloat(item.qty) || 0;
                   const price = parseFloat(item.unitPrice) || 0;
-                  const gross = qty * price;
-                  const discAmt = gross * ((parseFloat(item.discount) || 0) / 100);
-                  const net = gross - discAmt;
+                  const { discount: discAmt, total: net } = lineMoney(item.qty, item.unitPrice, item.discount);
                   const isHighlighted = highlightRowIdx === idx;
 
                   return (
@@ -2329,7 +2331,7 @@ function RecentInvoices({ onSelectInvoice, onEditInvoice, onRequestPasswordEdit 
   function pkr(v) {
     return `Rs ${parseFloat(v || 0).toFixed(0)}`;
   }
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = businessDay();
 
   return (
     <div className="card" style={{ marginTop: 12 }}>
