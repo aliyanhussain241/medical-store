@@ -100,7 +100,7 @@ New branch `codex/audit-batch-1`; focused commits referencing IDs, no push. Reve
 
 ## Open questions / pending access
 
-- Owner created Neon branch `audit-test`; `backend/.env.test` is still missing as of this checkpoint. No database connection is allowed until it exists and its endpoint passes the production-host exclusion check.
+- Resolved: owner supplied `backend/.env.test`; its endpoint passed production-host exclusion. Live verification results appear in the final Batch 1 checkpoint below. No production database connection was made.
 - Accountant confirmation of supplied conventions pending. Existing historical data cannot be silently normalized.
 - Product supplier/generic fields and city/area/town undecided and held.
 - Owner-only, Asia/Karachi, Chrome/Android Chrome, unpacked desktop acceptable. Render authoritative; refresh secret confirmed configured by owner.
@@ -161,22 +161,74 @@ The scanner starts `BEGIN TRANSACTION READ ONLY`, executes fixed SELECTs, and ro
 
 No reset is requested or required for the additive changes. No legacy invoice compatibility, invoice reconciliation or backfill will be built. Invoices without snapshots return 409 on edit. The read-only discrepancy report is diagnostic only; it does not propose or execute repairs. Existing demo rows may therefore remain incomplete. The user's statement that backups are unnecessary supersedes the earlier precautionary backup requirement for demo migrations; D01 functionality itself remains approved.
 
-The complete baseline-to-branch Prisma diff was reviewed for BOTH schemas. These are all additions; no columns, tables, relationships, enums or indexes are removed or renamed:
+The complete baseline-to-branch Prisma diff was reviewed for BOTH schemas. These are all additions; no columns, tables, relationships, enum values or indexes are removed or renamed:
 
 | Model / SQL table | Added fields | PostgreSQL | SQLite | Schema locations |
 |---|---|---|---|---|
 | Invoice / invoices | initialPaidAmount / initial_paid_amount; recordedCost / recorded_cost | nullable DECIMAL(15,2) each | nullable NUMERIC each | backend/prisma/schema.prisma:211; desktop/prisma/schema.prisma:203 |
 | InvoiceItem / invoice_items | unitCost / unit_cost | nullable DECIMAL(30,15) | nullable NUMERIC | backend/prisma/schema.prisma:245; desktop/prisma/schema.prisma:237 |
-| StockMovement / stock_movements | valueDelta / value_delta | nullable DECIMAL(15,2) | nullable NUMERIC | backend/prisma/schema.prisma:368; desktop/prisma/schema.prisma:344 |
-| CashBookEntry / cash_book | accountCategory / account_category; accountHeadName / account_head_name | nullable TEXT each | nullable TEXT each | backend/prisma/schema.prisma:317; desktop/prisma/schema.prisma:293 |
-| BankBookEntry / bank_book | accountCategory / account_category; accountHeadName / account_head_name | nullable TEXT each | nullable TEXT each | backend/prisma/schema.prisma:481; desktop/prisma/schema.prisma:435 |
-| AuditEvent / audit_events | id (PK, Prisma UUID default), userId, entityId, action, before, after, createdAt | six required TEXT fields; required TIMESTAMP(3), default CURRENT_TIMESTAMP | six required TEXT fields; required DATETIME, default CURRENT_TIMESTAMP | backend/prisma/schema.prisma:592; desktop/prisma/schema.prisma:540 |
-| IdempotencyRecord / idempotency_records | id (PK, Prisma UUID default), userId, key, operation, fingerprint, status, response, createdAt | six required TEXT fields; required INTEGER status; required TIMESTAMP(3), default CURRENT_TIMESTAMP | six required TEXT fields; required INTEGER status; required DATETIME, default CURRENT_TIMESTAMP | backend/prisma/schema.prisma:604; desktop/prisma/schema.prisma:552 |
+| StockMovement / stock_movements | valueDelta / value_delta | nullable DECIMAL(15,2) | nullable NUMERIC | backend/prisma/schema.prisma:374; desktop/prisma/schema.prisma:344 |
+| CashBookEntry / cash_book | accountCategory / account_category; accountHeadName / account_head_name | nullable TEXT each | nullable TEXT each | backend/prisma/schema.prisma:323; desktop/prisma/schema.prisma:293 |
+| BankBookEntry / bank_book | accountCategory / account_category; accountHeadName / account_head_name | nullable TEXT each | nullable TEXT each | backend/prisma/schema.prisma:487; desktop/prisma/schema.prisma:435 |
+| AuditEvent / audit_events | id (PK, Prisma UUID default), userId, entityId, action, before, after, createdAt | six required TEXT fields; required TIMESTAMP(3), default CURRENT_TIMESTAMP | six required TEXT fields; required DATETIME, default CURRENT_TIMESTAMP | backend/prisma/schema.prisma:598; desktop/prisma/schema.prisma:540 |
+| IdempotencyRecord / idempotency_records | id (PK, Prisma UUID default), userId, key, operation, fingerprint, status, response, createdAt | six required TEXT fields; required INTEGER status; required TIMESTAMP(3), default CURRENT_TIMESTAMP | six required TEXT fields; required INTEGER status; required DATETIME, default CURRENT_TIMESTAMP | backend/prisma/schema.prisma:610; desktop/prisma/schema.prisma:552 |
+| ReferenceType enum | OPENING_BALANCE_V2, PURCHASE_V2, SUPPLIER_PAYMENT_V2, INVOICE_INITIAL_PAYMENT, INVOICE_PAYMENT, INVOICE_REVERSAL | six additional values | no enum; existing reference_type TEXT supports them | backend/prisma/schema.prisma:304; desktop/prisma/schema.prisma:280 |
 
 New indexes: `audit_events_user_id_entity_id_idx` (user_id, entity_id); unique `idempotency_records_user_id_key_key` (user_id, key). UUID defaults are generated by Prisma, not SQL server defaults. New metadata tables use scalar tenant IDs without new foreign-key relations.
 
-Complete executable migration SQL is retained in `backend/prisma/posting-safety.sql:1` (PostgreSQL) and `desktop/prisma/posting-safety.sql:1` (SQLite). Both contain only transaction control, eight ADD COLUMN statements, two CREATE TABLE statements and two CREATE INDEX statements. Nothing is dropped and no historical data is changed. PostgreSQL additions are idempotent; SQLite migration targets the original schema and must run once, explicitly, offline. Neither build nor application startup applies these scripts.
+Complete executable migration SQL is retained in `backend/prisma/posting-safety.sql:1` (PostgreSQL) and `desktop/prisma/posting-safety.sql:1` (SQLite). Both contain transaction control, eight ADD COLUMN statements, two CREATE TABLE statements and two CREATE INDEX statements. PostgreSQL also adds six enum values with ALTER TYPE ADD VALUE IF NOT EXISTS. Nothing is dropped and no historical data is changed. PostgreSQL additions are idempotent; SQLite migration targets the original schema and must run once, explicitly, offline. Neither build nor application startup applies these scripts.
 
 Latest validation: 27 database-free tests pass. The discrepancy, concurrency, migration and desktop backup/restore entry points all refuse execution while `backend/.env.test` is absent. Therefore live before/after figures for Trial Balance, Balance Sheet, customer/supplier ledgers, bank book and Dashboard are **Unverified**; the earlier table remains an in-memory report-calculation fixture only. Dashboard is explicitly included in the pending live comparison. The discrepancy scan must be shown before any repair proposal; concurrency testing may require the explicit additive migration first if the test branch has the old schema. No database was contacted, reset or repaired.
 
 N01 detail: access-token verification checks signature and expiry only (`backend/src/middleware/authMiddleware.js:22`). Logout deletes refresh tokens (`backend/src/controllers/authController.js:161`); password change does likewise (`backend/src/controllers/authController.js:222`). Existing access tokens therefore remain usable until expiry: web fallback 15 minutes (`backend/src/controllers/authController.js:25`), configured web duration not inspected, desktop 24 hours (`desktop/main.js:28`). Immediate access-token revocation remains held and unchanged.
+
+## Final Batch 1 verification checkpoint — 2026-10-17
+
+This section supersedes earlier pending-access checkpoints. Owner supplied `backend/.env.test` with TEST_DATABASE_URL. Guard verified a distinct production endpoint, including pooled-host normalization. All live PostgreSQL work used only this file's URL. No production connection, reset, demo-data repair, push or merge occurred. Stop here for owner review; G05 and later batches have not started.
+
+### Step 7 — actual read-only discrepancy results
+
+Executed before migration and shown to the owner before proceeding. SELECTs ran in `BEGIN TRANSACTION READ ONLY`, followed by ROLLBACK (`backend/scripts/discrepancies.js:13`). Later summary rerun confirmed these counts. No repair is proposed or applied.
+
+| Type / record | Stored | Computed | Result |
+|---|---:|---:|---|
+| Supplier comp-004 | 11,270.00 | 11,530.00 | Difference 260.00 |
+| Bank b579893f-a7b2-4ca1-ac37-7d29d63a7b8c | 280,000.00 | 380,000.00 | Difference 100,000.00 |
+| Bank 009efb76-93c6-4003-9750-f23db5d51018 | 872,000.00 | 927,000.00 | Difference 55,000.00 |
+| 19,044 products | — | — | Opening inventory snapshot unavailable; Unverified |
+
+### Actual test-branch before/after reports
+
+Verified by `backend/test/reports.integration.js:31`: an isolated new PostgreSQL tenant posts the stated fixture via the real APIs. Original report controllers from baseline commit `176b6e3775e0619a11cba576aa1fe252bf693ddc` and fixed controllers/builders read the SAME new fixture rows. This compares report calculations; it does not replay old posting code or reconcile legacy invoices. This distinction explains why the live baseline differs from the earlier synthetic legacy-sign fixture.
+
+| Report / metric | Original report code on live fixture | Fixed code on live fixture |
+|---|---:|---:|
+| Trial Balance debit / credit | 445 / 170 | 445 / 445 |
+| Balance Sheet assets / liabilities / equity | 445 / 170 / 275 | 445 / 170 / 275 |
+| Filtered customer closing | 60 DR | 110 DR |
+| Filtered supplier closing | 150 CR | 170 CR |
+| Bank book closing | 190 | 90 |
+| Dashboard | Fails: missing cashBook aggregate model | HTTP 200; complete=true |
+| Dashboard sales / COGS / gross profit | Unavailable due to failure | 120 / 75 / 45 |
+| Dashboard purchases / receivables / payables | Unavailable due to failure | 200 / 110 / 170 |
+| Dashboard cash / total bank / combined liquidity | Unavailable due to failure | 20 / 90 / 110 |
+
+Opening stock 10 at 10 plus purchase 10 at 20 gives weighted average 15; sale 4 plus 1 free consumes cost 75. Closing inventory is 15 units valued 225. Opening bank 100, customer DR50 and supplier CR20 are counted once. New fixture tenants were removed after testing; three tenants left by earlier failed harness runs were also removed using exact harness-only markers (`backend/scripts/cleanup-test-fixtures.js:10`). Existing demo tenants were untouched.
+
+### Validation and corrections exposed by live testing
+
+| Check | Final result |
+|---|---|
+| Database-free regression | 28 passing, including generated enum/migration parity |
+| Tenant ownership, simultaneous oversell, concurrent settlement, idempotent retry, revision retaining later payments/audit | PASS on audit-test (`backend/test/database.integration.js:13`) |
+| Live financial reports and Dashboard fixture; dependency-safe cleanup | PASS (`backend/test/reports.integration.js:31`) |
+| PostgreSQL migration | PASS on audit-test; all additions, including six posting enum values |
+| SQLite migration | PASS on an isolated pre-migration temporary schema; startup read-only preflight accepts result (`backend/test/desktop-backup.integration.js:17`) |
+| Desktop WAL snapshot and restore | PASS; committed row100 restored, later source row200 absent, integrity_check=ok; temporary files cleaned |
+| Backend build | PASS; Prisma generation only, no schema mutation |
+| Frontend compilation | PASS; 31 assets built in memory, output writing disabled |
+| Source lint | PASS, existing warnings remain; default npm lint scanned node_modules and was stopped; explicit oxlint src exits 0 |
+
+The first pre-migration run failed because the local generated client lacked the new metadata models. After generation, live settlement testing exposed six missing PostgreSQL enum values; these were added to schema/SQL, applied explicitly, and guarded by a new regression test (`backend/test/schema.test.js:6`). The first report test passed report assertions but failed cleanup because purchase-product foreign keys use RESTRICT; cleanup now removes fixture purchases first. The first sandboxed desktop test failed file rename; the isolated test passed outside the sandbox. These failed attempts are not counted as passes.
+
+No existing-data compatibility/backfill was added. No customer database backup or reset is required/requested for this disposable branch. Full desktop application/package behavior, browser visual/accessibility QA and held provider-adapter issues remain Unverified. N01 immediate access-token revocation remains held. Production release/migration is outside this execution.
