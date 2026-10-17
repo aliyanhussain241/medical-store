@@ -1,3 +1,4 @@
+if (require.main === module) throw new Error('Legacy stateful HTTP tests are disabled. Use npm run test:database with the approved disposable target.');
 // ─────────────────────────────────────────────────────────────
 // run_e2e_tests.js — Comprehensive End-to-End Test Suite
 // Covers all 5 test scenarios using Node 24 native fetch + ExcelJS

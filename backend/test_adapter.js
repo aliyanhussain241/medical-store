@@ -1,3 +1,4 @@
+process.env.DATABASE_URL = require('./test/databaseTarget').requireTestDatabase(process.env, { writes: false });
 // Test that Prisma uses driver adapter and doesn't load the Rust engine
 const prisma = require('./src/utils/prismaClient');
 
