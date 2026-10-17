@@ -64,6 +64,12 @@ async function startServer() {
       console.log('✅ Existing database found');
     }
 
+    const prisma = require('./backend/src/utils/prismaClient');
+    const { PrismaClient } = require('./generated/prisma-client');
+    const { backupSqlite } = require('./backend/src/utils/sqliteBackup');
+    const { ensureSqlitePostingSchema } = require('./backend/src/utils/sqlitePostingSchema');
+    await ensureSqlitePostingSchema({ prisma, beforeUpgrade: () => backupSqlite({ prisma, PrismaClient, backupDir: BACKUP_DIR }) });
+
     // Now require and start the Express app
     const expressApp = require('./backend/src/app');
 
@@ -151,20 +157,14 @@ function createWindow() {
 }
 
 // ── Database Backup ──────────────────────────────────────────
-function backupDatabase() {
+let backupInProgress = false;
+async function backupDatabase() {
+  if (backupInProgress) return;
+  backupInProgress = true;
   try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const backupPath = path.join(BACKUP_DIR, `medstore-backup-${timestamp}.db`);
-    fs.copyFileSync(DB_PATH, backupPath);
-
-    // Keep only last 10 backups
-    const backups = fs.readdirSync(BACKUP_DIR)
-      .filter(f => f.endsWith('.db'))
-      .sort()
-      .reverse();
-    backups.slice(10).forEach(f => {
-      try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch (_) { }
-    });
+    const { backupSqlite } = require('./backend/src/utils/sqliteBackup');
+    const { PrismaClient } = require('./generated/prisma-client');
+    const backupPath = await backupSqlite({ prisma: require('./backend/src/utils/prismaClient'), PrismaClient, backupDir: BACKUP_DIR });
 
     dialog.showMessageBox(mainWindow, {
       type: 'info',
@@ -176,6 +176,8 @@ function backupDatabase() {
     });
   } catch (err) {
     dialog.showErrorBox('Backup Failed', err.message);
+  } finally {
+    backupInProgress = false;
   }
 }
 
